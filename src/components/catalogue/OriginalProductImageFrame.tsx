@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ImageOff, ArrowUpRight } from 'lucide-react';
+import { Smartphone, ArrowUpRight } from 'lucide-react';
 
 interface OriginalProductImageFrameProps {
   imageSrc?: string | null;
@@ -14,13 +14,12 @@ interface OriginalProductImageFrameProps {
 }
 
 /**
- * Displays ONLY the exact real online product reference image or uploaded product photo
- * using `object-contain` on a clean studio background so the phone/accessory shape,
- * camera layout, colour, display design, brand logo, and proportions are preserved
- * without stretching or cropping.
+ * Displays the exact product photo using `object-contain` on a clean studio background
+ * so the phone/accessory shape, camera layout, colour, display design, brand logo, and
+ * proportions are preserved without stretching or cropping.
  *
- * If the exact model image cannot be found or fails to load, it strictly avoids
- * substituting a similar phone or AI image and displays "Product image unavailable".
+ * When an exact product photo is not yet available, it displays a clean
+ * "Photo Coming Soon" placeholder without substituting AI or price-list images.
  */
 export const OriginalProductImageFrame: React.FC<OriginalProductImageFrameProps> = ({
   imageSrc,
@@ -44,8 +43,8 @@ export const OriginalProductImageFrame: React.FC<OriginalProductImageFrameProps>
 
   const fallbackBg =
     theme === 'light'
-      ? 'bg-[#F3F4F7] border-b border-zinc-200/80 text-zinc-800'
-      : 'bg-[#12151E] border-b border-white/10 text-zinc-200';
+      ? 'bg-gradient-to-b from-[#F5F6FA] to-[#ECEEF4] border-b border-zinc-200/80 text-zinc-800'
+      : 'bg-gradient-to-b from-[#151924] to-[#0E1017] border-b border-white/10 text-zinc-200';
 
   if (hasValidImage) {
     return (
@@ -76,9 +75,9 @@ export const OriginalProductImageFrame: React.FC<OriginalProductImageFrameProps>
     <div
       className={`relative w-full aspect-[4/3] p-4 flex flex-col items-center justify-between text-center select-none ${fallbackBg} ${className}`}
     >
-      {/* Top Brand / Angle Metadata */}
-      <div className="w-full flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wider">
-        <span className={theme === 'light' ? 'text-zinc-500 truncate' : 'text-zinc-400 truncate'}>
+      {/* Top Brand Header */}
+      <div className="w-full flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wider">
+        <span className={theme === 'light' ? 'text-zinc-500 truncate' : 'text-amber-400/90 truncate'}>
           {brandLabel || 'Friends Cell Point'}
         </span>
         {angleLabel && (
@@ -86,7 +85,7 @@ export const OriginalProductImageFrame: React.FC<OriginalProductImageFrameProps>
             className={`px-2 py-0.5 rounded ${
               theme === 'light'
                 ? 'bg-zinc-200/80 text-zinc-700'
-                : 'bg-white/10 text-amber-300'
+                : 'bg-white/10 text-zinc-300'
             }`}
           >
             {angleLabel}
@@ -94,27 +93,27 @@ export const OriginalProductImageFrame: React.FC<OriginalProductImageFrameProps>
         )}
       </div>
 
-      {/* Center Neutral "Product image unavailable" Notice (No AI or Similar-Phone Substitute) */}
+      {/* Center Clean "Product Image Unavailable" Placeholder */}
       <div className="my-auto flex flex-col items-center max-w-[220px]">
         <div
-          className={`w-10 h-10 rounded-xl flex items-center justify-center border mb-2 ${
+          className={`w-11 h-11 rounded-2xl flex items-center justify-center border mb-2.5 ${
             theme === 'light'
-              ? 'bg-white border-zinc-200 text-zinc-400 shadow-2xs'
-              : 'bg-[#0B0C0E] border-white/10 text-zinc-500'
+              ? 'bg-white border-zinc-200/90 text-zinc-500 shadow-xs'
+              : 'bg-[#0B0C0E] border-white/10 text-amber-400/80'
           }`}
         >
-          <ImageOff className="w-4 h-4" />
+          <Smartphone className="w-5 h-5" />
         </div>
         <p
-          className={`text-xs font-semibold leading-snug ${
-            theme === 'light' ? 'text-zinc-800' : 'text-zinc-200'
+          className={`text-xs font-bold tracking-wide ${
+            theme === 'light' ? 'text-zinc-800' : 'text-zinc-100'
           }`}
         >
-          Image unavailable
+          Product Image Unavailable
         </p>
         {modelOrCategoryLabel && (
           <p
-            className={`mt-0.5 text-[11px] truncate max-w-full ${
+            className={`mt-0.5 text-[11px] font-medium truncate max-w-full ${
               theme === 'light' ? 'text-zinc-500' : 'text-zinc-400'
             }`}
           >
@@ -123,7 +122,7 @@ export const OriginalProductImageFrame: React.FC<OriginalProductImageFrameProps>
         )}
       </div>
 
-      {/* Bottom "View product details" Prompt */}
+      {/* Bottom Action Hint */}
       <div className="w-full pt-2 border-t border-current/10 flex items-center justify-center gap-1 text-[11px] font-semibold">
         {showViewDetailsHint ? (
           <span
@@ -131,12 +130,12 @@ export const OriginalProductImageFrame: React.FC<OriginalProductImageFrameProps>
               theme === 'light' ? 'text-amber-700' : 'text-amber-400'
             }`}
           >
-            <span>View product details</span>
+            <span>View Model Details</span>
             <ArrowUpRight className="w-3 h-3" />
           </span>
         ) : (
           <span className={theme === 'light' ? 'text-zinc-400' : 'text-zinc-500'}>
-            Exact Model Reference Slot
+            Product Photo
           </span>
         )}
       </div>

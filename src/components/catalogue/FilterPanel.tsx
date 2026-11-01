@@ -25,6 +25,11 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   onUpdateFilters,
   onResetFilters,
 }) => {
+  const availableSeries =
+    filters.brand !== 'All'
+      ? brands.find((b) => b.name.toLowerCase() === filters.brand.toLowerCase())?.seriesList || []
+      : Array.from(new Set(brands.flatMap((b) => b.seriesList)));
+
   const renderFilterControls = () => (
     <div className="space-y-4">
       {/* 1. Brand Filter */}
@@ -50,10 +55,33 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
         </select>
       </div>
 
-      {/* 2. Price Tier Filter */}
+      {/* 2. Series Filter */}
+      <div>
+        <label htmlFor="fp-series" className="block text-xs font-semibold text-zinc-800 mb-1.5">
+          Series
+        </label>
+        <select
+          id="fp-series"
+          aria-label="Filter by Series"
+          value={filters.series}
+          onChange={(e) =>
+            onUpdateFilters((prev) => ({ ...prev, series: e.target.value }))
+          }
+          className="w-full px-3 py-2 rounded-xl bg-[#F8F8FA] border border-zinc-300 text-xs font-medium text-zinc-900"
+        >
+          <option value="All">All Series ({availableSeries.length})</option>
+          {availableSeries.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* 3. Price Range Filter */}
       <div>
         <label htmlFor="fp-price" className="block text-xs font-semibold text-zinc-800 mb-1.5">
-          Price Segment
+          Price Range (MOP / Retail)
         </label>
         <select
           id="fp-price"
@@ -67,18 +95,23 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           }
           className="w-full px-3 py-2 rounded-xl bg-[#F8F8FA] border border-zinc-300 text-xs font-medium text-zinc-900"
         >
-          <option value="All">All Price Tiers (Check Price)</option>
-          <option value="Budget">Budget Phones</option>
-          <option value="Mid-Range">Mid-Range Phones</option>
-          <option value="Premium">Premium Phones</option>
-          <option value="Flagship">Flagship Phones</option>
+          <option value="All">All Prices</option>
+          <option value="Under ₹10,000">Under ₹10,000</option>
+          <option value="₹10,000 - ₹20,000">₹10,000 - ₹20,000</option>
+          <option value="₹20,000 - ₹35,000">₹20,000 - ₹35,000</option>
+          <option value="₹35,000 - ₹60,000">₹35,000 - ₹60,000</option>
+          <option value="Above ₹60,000">Above ₹60,000</option>
+          <option value="Budget">Budget Segment</option>
+          <option value="Mid-Range">Mid-Range Segment</option>
+          <option value="Premium">Premium Segment</option>
+          <option value="Flagship">Flagship Segment</option>
         </select>
       </div>
 
-      {/* 3. RAM Filter */}
+      {/* 4. RAM Variant Filter */}
       <div>
         <label htmlFor="fp-ram" className="block text-xs font-semibold text-zinc-800 mb-1.5">
-          RAM
+          RAM Variant
         </label>
         <select
           id="fp-ram"
@@ -88,6 +121,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           className="w-full px-3 py-2 rounded-xl bg-[#F8F8FA] border border-zinc-300 text-xs font-medium text-zinc-900"
         >
           <option value="All">Any RAM</option>
+          <option value="4GB">4GB RAM</option>
           <option value="6GB">6GB RAM</option>
           <option value="8GB">8GB RAM</option>
           <option value="12GB">12GB RAM</option>
@@ -95,10 +129,10 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
         </select>
       </div>
 
-      {/* 4. Storage Filter */}
+      {/* 5. Storage Variant Filter */}
       <div>
         <label htmlFor="fp-storage" className="block text-xs font-semibold text-zinc-800 mb-1.5">
-          Storage
+          Storage Variant
         </label>
         <select
           id="fp-storage"
@@ -108,14 +142,14 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           className="w-full px-3 py-2 rounded-xl bg-[#F8F8FA] border border-zinc-300 text-xs font-medium text-zinc-900"
         >
           <option value="All">Any Storage</option>
+          <option value="64GB">64GB</option>
           <option value="128GB">128GB</option>
           <option value="256GB">256GB</option>
           <option value="512GB">512GB</option>
-          <option value="1TB">1TB</option>
         </select>
       </div>
 
-      {/* 5. 5G Network Filter */}
+      {/* 6. 5G / 4G Network Filter */}
       <div>
         <label htmlFor="fp-5g" className="block text-xs font-semibold text-zinc-800 mb-1.5">
           5G / Network
@@ -132,83 +166,9 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           }
           className="w-full px-3 py-2 rounded-xl bg-[#F8F8FA] border border-zinc-300 text-xs font-medium text-zinc-900"
         >
-          <option value="All">5G &amp; 4G Smartphones</option>
-          <option value="5G">5G Ready Only</option>
+          <option value="All">All Models (5G, 4G &amp; Feature)</option>
+          <option value="5G">5G Models Only</option>
           <option value="4G">4G / Keypad Phones</option>
-        </select>
-      </div>
-
-      {/* 6. Camera Filter */}
-      <div>
-        <label htmlFor="fp-camera" className="block text-xs font-semibold text-zinc-800 mb-1.5">
-          Camera Setup
-        </label>
-        <select
-          id="fp-camera"
-          aria-label="Filter by Camera"
-          value={filters.camera}
-          onChange={(e) => onUpdateFilters((prev) => ({ ...prev, camera: e.target.value }))}
-          className="w-full px-3 py-2 rounded-xl bg-[#F8F8FA] border border-zinc-300 text-xs font-medium text-zinc-900"
-        >
-          <option value="All">All Camera Systems</option>
-          <option value="Pro Camera">Pro Camera System</option>
-          <option value="Multi-Camera">Multi-Camera Setup</option>
-        </select>
-      </div>
-
-      {/* 7. Battery Filter */}
-      <div>
-        <label htmlFor="fp-battery" className="block text-xs font-semibold text-zinc-800 mb-1.5">
-          Battery Class
-        </label>
-        <select
-          id="fp-battery"
-          aria-label="Filter by Battery"
-          value={filters.battery}
-          onChange={(e) => onUpdateFilters((prev) => ({ ...prev, battery: e.target.value }))}
-          className="w-full px-3 py-2 rounded-xl bg-[#F8F8FA] border border-zinc-300 text-xs font-medium text-zinc-900"
-        >
-          <option value="All">All Battery Types</option>
-          <option value="High-Capacity">High-Capacity Battery</option>
-          <option value="All-Day">All-Day Battery</option>
-        </select>
-      </div>
-
-      {/* 8. Screen Size Filter */}
-      <div>
-        <label htmlFor="fp-screen" className="block text-xs font-semibold text-zinc-800 mb-1.5">
-          Screen Size
-        </label>
-        <select
-          id="fp-screen"
-          aria-label="Filter by Screen Size"
-          value={filters.screenSize}
-          onChange={(e) => onUpdateFilters((prev) => ({ ...prev, screenSize: e.target.value }))}
-          className="w-full px-3 py-2 rounded-xl bg-[#F8F8FA] border border-zinc-300 text-xs font-medium text-zinc-900"
-        >
-          <option value="All">All Screen Sizes</option>
-          <option value="Compact">Compact Display</option>
-          <option value="Standard">Standard 6.5&quot;+ Display</option>
-          <option value="Large">Large 6.7&quot;+ Display</option>
-          <option value="Foldable">Foldable Display</option>
-        </select>
-      </div>
-
-      {/* 9. Operating System Filter */}
-      <div>
-        <label htmlFor="fp-os" className="block text-xs font-semibold text-zinc-800 mb-1.5">
-          Operating System
-        </label>
-        <select
-          id="fp-os"
-          aria-label="Filter by Operating System"
-          value={filters.os}
-          onChange={(e) => onUpdateFilters((prev) => ({ ...prev, os: e.target.value }))}
-          className="w-full px-3 py-2 rounded-xl bg-[#F8F8FA] border border-zinc-300 text-xs font-medium text-zinc-900"
-        >
-          <option value="All">Android &amp; iOS</option>
-          <option value="Android">Android</option>
-          <option value="iOS">iOS (Apple)</option>
         </select>
       </div>
     </div>
@@ -240,7 +200,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           {renderFilterControls()}
 
           <div className="mt-5 pt-3.5 border-t border-zinc-100 text-xs text-zinc-500 flex items-center justify-between">
-            <span>Matching phones:</span>
+            <span>Matching entries:</span>
             <strong className="text-zinc-950 font-mono-num">{matchingCount}</strong>
           </div>
         </div>
@@ -260,7 +220,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                 <h3 className="font-display text-base font-bold text-zinc-950">
                   Filter &amp; Sort Mobiles
                 </h3>
-                <p className="text-xs text-zinc-500">{matchingCount} models matching</p>
+                <p className="text-xs text-zinc-500">{matchingCount} entries matching</p>
               </div>
               <button
                 type="button"
@@ -316,7 +276,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                 onClick={onCloseMobileDrawer}
                 className="flex-1 py-3 rounded-xl bg-amber-500 text-zinc-950 text-xs font-bold cursor-pointer"
               >
-                Show {matchingCount} Phones
+                Show {matchingCount} Entries
               </button>
             </div>
           </div>

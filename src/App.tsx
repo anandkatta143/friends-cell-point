@@ -46,6 +46,8 @@ import {
   getCompatibleAccessoriesForPhone,
   getSeriesDirectoryForBrand,
   resolveUniversalCatalogueSearch,
+  auditSmartphoneCatalogue,
+  PRICE_CHANGE_DISCLAIMER,
 } from './utils/storeLogic';
 import {
   HeroStudioPhone,
@@ -70,9 +72,9 @@ import { EnquiryModal, EnquiryTarget } from './components/EnquiryModal';
 import { DirectionsModal } from './components/DirectionsModal';
 
 const STORAGE_KEYS = {
-  brandDirectory: 'fcp_brand_dir_v7',
-  phoneCatalogue: 'fcp_phone_catalogue_v7',
-  accessoriesCatalogue: 'fcp_accessories_catalogue_v7',
+  brandDirectory: 'fcp_brand_dir_v11',
+  phoneCatalogue: 'fcp_phone_catalogue_v11',
+  accessoriesCatalogue: 'fcp_accessories_catalogue_v11',
   mapsUrl: 'fcp_maps_url_v1',
 };
 
@@ -114,7 +116,7 @@ export default function App() {
   // Advanced Search, Filter & Sort State
   const [filters, setFilters] = useState<AdvancedMobileFilterState>(DEFAULT_MOBILE_FILTER_STATE);
   const [activeCatalogueTab, setActiveCatalogueTab] = useState<'all' | 'featured' | 'latest'>('all');
-  const [visibleCount, setVisibleCount] = useState(12);
+  const [visibleCount, setVisibleCount] = useState(1000);
   const [mobileFilterDrawerOpen, setMobileFilterDrawerOpen] = useState(false);
 
   // Selected Accessory Category Filter
@@ -124,8 +126,8 @@ export default function App() {
   const [accessorySearchQuery, setAccessorySearchQuery] = useState('');
 
   // "FIND ACCESSORIES FOR YOUR PHONE" State
-  const [finderBrand, setFinderBrand] = useState<string>('Samsung');
-  const [finderModel, setFinderModel] = useState<string>('Samsung Galaxy S Series');
+  const [finderBrand, setFinderBrand] = useState<string>('vivo');
+  const [finderModel, setFinderModel] = useState<string>('Y05 4G (4+64GB)');
   const [finderCustomModel, setFinderCustomModel] = useState<string>('');
 
   // Product Detail Page (PDP), Comparison & Admin Modals
@@ -182,7 +184,7 @@ export default function App() {
     }
   }, [configuredMapsUrl]);
 
-  // Real model count per brand from connected catalogue data
+  // Real model count per brand and dynamic series count from connected catalogue data
   const modelCountByBrand = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const item of catalogue) {
@@ -191,6 +193,12 @@ export default function App() {
     }
     return counts;
   }, [catalogue]);
+
+  const catalogueAuditSummary = useMemo(
+    () => auditSmartphoneCatalogue(brands, catalogue),
+    [brands, catalogue]
+  );
+  const totalSeriesCount = catalogueAuditSummary.totalVerifiedSeries;
 
   // Derived active brand object for Brand Model Page
   const activeBrandObj = useMemo(
@@ -308,7 +316,7 @@ export default function App() {
       searchQuery: resolved.searchQuery,
     });
     setActiveCatalogueTab('all');
-    setVisibleCount(200);
+    setVisibleCount(1000);
     scrollToSection('catalogue');
   };
 
@@ -322,7 +330,7 @@ export default function App() {
       searchQuery: '',
     }));
     setActiveCatalogueTab('all');
-    setVisibleCount(200);
+    setVisibleCount(1000);
     scrollToSection('catalogue');
   };
 
@@ -334,7 +342,7 @@ export default function App() {
       generationFilter: 'All',
     }));
     setActiveCatalogueTab('all');
-    setVisibleCount(200);
+    setVisibleCount(1000);
     scrollToSection('catalogue');
   };
 
@@ -344,7 +352,7 @@ export default function App() {
       category: categorySlug,
     });
     setActiveCatalogueTab('all');
-    setVisibleCount(48);
+    setVisibleCount(1000);
     scrollToSection('catalogue');
   };
 
@@ -357,7 +365,7 @@ export default function App() {
   const handleResetFilters = () => {
     setFilters(DEFAULT_MOBILE_FILTER_STATE);
     setActiveCatalogueTab('all');
-    setVisibleCount(12);
+    setVisibleCount(1000);
   };
 
   const handleToggleCompare = (product: SmartphoneProduct) => {
@@ -535,8 +543,9 @@ export default function App() {
                 <p className="mt-4 text-sm sm:text-base text-zinc-300 leading-relaxed max-w-xl">
                   Explore the latest smartphones, mobile accessories, TWS earbuds, tempered glass
                   and charging solutions across{' '}
-                  <strong className="text-white">{brands.length}+ mobile brands</strong> at Friends
-                  Cell Point.
+                  <strong className="text-white">{brands.length} mobile brands</strong> and{' '}
+                  <strong className="text-white">{catalogue.length} verified models</strong> at
+                  Friends Cell Point.
                 </p>
 
                 {/* Major Search Entry Point */}
@@ -554,6 +563,9 @@ export default function App() {
                     catalogue={catalogue}
                     onSelectBrandSuggestion={(brandName) =>
                       handleSelectBrandFromDirectory(brandName)
+                    }
+                    onSelectSeriesSuggestion={(brandName, seriesName) =>
+                      handleSelectSeries(brandName, seriesName)
                     }
                     onSelectProductSuggestion={(prod) => setSelectedProductForPdp(prod)}
                     onSelectAccessorySuggestion={(accCat) =>
@@ -661,8 +673,8 @@ export default function App() {
                       Explore smartphones from leading mobile brands.
                     </p>
                     <p className="text-xs text-zinc-400">
-                      {brands.length}+ Brands · {catalogue.length}+ Series &amp; Models · 5G,
-                      Budget, Mid-Range &amp; Flagships
+                      {brands.length} Brands · {totalSeriesCount} Series · {catalogue.length} Models ·
+                      5G, Budget, Mid-Range &amp; Flagships
                     </p>
                   </div>
 
@@ -671,7 +683,7 @@ export default function App() {
                       imageSrc={catalogue.find((p) => Boolean(p.productImage))?.productImage}
                       altText="Smartphones Catalogue"
                       brandLabel="Smartphones"
-                      modelOrCategoryLabel={`${brands.length}+ Leading Mobile Brands`}
+                      modelOrCategoryLabel={`${brands.length} Brands · ${catalogue.length} Models`}
                       theme="dark"
                       showViewDetailsHint={true}
                     />
@@ -974,8 +986,7 @@ export default function App() {
                   LATEST SMARTPHONES
                 </h2>
                 <p className="mt-1 text-xs sm:text-sm text-zinc-600 max-w-2xl">
-                  Preview featured and latest smartphone series below. Prices and live stock are
-                  confirmed directly on enquiry via WhatsApp.
+                  {PRICE_CHANGE_DISCLAIMER}
                 </p>
               </div>
 
@@ -1621,8 +1632,9 @@ export default function App() {
                   </h2>
                   <p className="mt-2 text-sm text-zinc-600 max-w-2xl">
                     Showing <strong className="text-zinc-950">{matchingSmartphones.length}</strong>{' '}
-                    models from our connected catalogue. Select any model to view specifications,
-                    compare up to 3 phones, or enquire on WhatsApp.
+                    smartphone models &amp; variants across{' '}
+                    <strong className="text-zinc-950">{brands.length}</strong> mobile brands.{' '}
+                    {PRICE_CHANGE_DISCLAIMER}
                   </p>
                 </div>
 
@@ -1639,7 +1651,7 @@ export default function App() {
                       type="button"
                       onClick={() => {
                         setActiveCatalogueTab(tab.id);
-                        setVisibleCount(12);
+                        setVisibleCount(1000);
                       }}
                       className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                         activeCatalogueTab === tab.id
@@ -1694,6 +1706,9 @@ export default function App() {
                     catalogue={catalogue}
                     onSelectBrandSuggestion={(brandName) =>
                       handleSelectBrandFromDirectory(brandName)
+                    }
+                    onSelectSeriesSuggestion={(brandName, seriesName) =>
+                      handleSelectSeries(brandName, seriesName)
                     }
                     onSelectProductSuggestion={(prod) => setSelectedProductForPdp(prod)}
                     onSelectAccessorySuggestion={(accCat) =>

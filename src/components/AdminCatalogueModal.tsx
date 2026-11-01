@@ -46,9 +46,15 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
 
   // Model Form State
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
-  const [brandName, setBrandName] = useState(brands[0]?.name || 'Samsung');
+  const [brandName, setBrandName] = useState(brands[0]?.name || 'vivo');
   const [modelName, setModelName] = useState('');
   const [seriesName, setSeriesName] = useState('');
+  const [variantStr, setVariantStr] = useState('');
+  const [mopPriceStr, setMopPriceStr] = useState('');
+  const [dealerPriceStr, setDealerPriceStr] = useState('');
+  const [effectivePriceStr, setEffectivePriceStr] = useState('');
+  const [sourceStr, setSourceStr] = useState('Official Price List');
+  const [lastUpdatedStr, setLastUpdatedStr] = useState('April 2026');
   const [productImage, setProductImage] = useState('');
   const [galleryImages, setGalleryImages] = useState<ProductGalleryImages>({});
   const [displaySpec, setDisplaySpec] = useState('');
@@ -85,8 +91,14 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
       setActiveTab('models');
       setEditingId(initialEditProduct.id);
       setBrandName(initialEditProduct.brand);
-      setModelName(initialEditProduct.modelName);
+      setModelName(initialEditProduct.model || initialEditProduct.modelName);
       setSeriesName(initialEditProduct.series);
+      setVariantStr(initialEditProduct.variant || '');
+      setMopPriceStr(initialEditProduct.mopPrice || '');
+      setDealerPriceStr(initialEditProduct.dealerPrice || '');
+      setEffectivePriceStr(initialEditProduct.effectivePrice || '');
+      setSourceStr(initialEditProduct.source || 'Official Price List');
+      setLastUpdatedStr(initialEditProduct.lastUpdated || 'April 2026');
       setProductImage(initialEditProduct.productImage || '');
       setGalleryImages(initialEditProduct.galleryImages || {});
       setDisplaySpec(initialEditProduct.display);
@@ -102,6 +114,12 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
       setEditingId(undefined);
       setModelName('');
       setSeriesName('');
+      setVariantStr('');
+      setMopPriceStr('');
+      setDealerPriceStr('');
+      setEffectivePriceStr('');
+      setSourceStr('Official Price List');
+      setLastUpdatedStr('April 2026');
       setProductImage('');
       setGalleryImages({});
       setPriceStr('');
@@ -150,6 +168,12 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
       brand: brandName,
       modelName,
       series: seriesName || `${brandName} Series`,
+      variant: variantStr,
+      mopPrice: mopPriceStr,
+      dealerPrice: dealerPriceStr,
+      effectivePrice: effectivePriceStr,
+      source: sourceStr,
+      lastUpdated: lastUpdatedStr,
       productImage,
       galleryImages,
       display: displaySpec,
@@ -172,12 +196,16 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
     setFormError('');
     setFormNotice(
       editingId
-        ? `Updated "${res.item.modelName}" (including original product photos) across Homepage, Brand page, Search, Category page, Product detail page and Related products.`
-        : `Added "${res.item.modelName}" to catalogue. Automatically live across Homepage, Brand page, Search, Category page, Product detail page and Related products.`
+        ? `Updated "${res.item.modelName}" across the price-list catalogue.`
+        : `Added "${res.item.modelName}" to the price-list catalogue.`
     );
     if (!editingId) {
       setModelName('');
       setSeriesName('');
+      setVariantStr('');
+      setMopPriceStr('');
+      setDealerPriceStr('');
+      setEffectivePriceStr('');
       setProductImage('');
       setGalleryImages({});
       setPriceStr('');
@@ -241,15 +269,31 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
   };
 
   const handleExportJson = () => {
-    setJsonBuffer(JSON.stringify({ brands, catalogue: catalogue.slice(0, 40) }, null, 2));
+    const structuredEntries = catalogue.map((p) => ({
+      brand: p.brand,
+      series: p.series,
+      model: p.model,
+      variant: p.variant,
+      colors: p.colors,
+      mopPrice: p.mopPrice,
+      dealerPrice: p.dealerPrice,
+      effectivePrice: p.effectivePrice,
+      source: p.source,
+      lastUpdated: p.lastUpdated,
+    }));
+    setJsonBuffer(JSON.stringify(structuredEntries, null, 2));
     setFormError('');
-    setFormNotice('Generated JSON export for the catalogue.');
+    setFormNotice(
+      'Generated centralized JSON export (brand, series, model, variant, colors, mopPrice, dealerPrice, effectivePrice, source, lastUpdated).'
+    );
   };
 
   const handleExportCsv = () => {
-    setJsonBuffer(exportSmartphonesToCsv(catalogue.slice(0, 60)));
+    setJsonBuffer(exportSmartphonesToCsv(catalogue));
     setFormError('');
-    setFormNotice('Generated CSV export with structured fields (id, brand, series, model, modelNumber, generation, image, sourceUrl, specs).');
+    setFormNotice(
+      'Generated CSV export with price-list fields (id, brand, series, model, variant, colors, mopPrice, dealerPrice, effectivePrice, source, lastUpdated).'
+    );
   };
 
   const handleImportDataset = () => {
@@ -284,7 +328,7 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
 
     onUpdateStoreData(brands, res.catalogue);
     setFormError('');
-    setFormNotice(`Imported / updated ${res.importedCount} verified smartphone models into the catalogue.`);
+    setFormNotice(`Imported / updated ${res.importedCount} price-list smartphone entries into the catalogue.`);
   };
 
   return (

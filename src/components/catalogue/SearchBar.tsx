@@ -14,6 +14,7 @@ interface SearchBarProps {
   brands: BrandDirectoryEntry[];
   catalogue: SmartphoneProduct[];
   onSelectBrandSuggestion: (brandName: string) => void;
+  onSelectSeriesSuggestion?: (brandName: string, seriesName: string) => void;
   onSelectProductSuggestion: (product: SmartphoneProduct) => void;
   onSelectAccessorySuggestion?: (category: AccessoryCategoryName) => void;
   onSubmitSearch?: (queryText?: string) => void;
@@ -27,6 +28,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   brands,
   catalogue,
   onSelectBrandSuggestion,
+  onSelectSeriesSuggestion,
   onSelectProductSuggestion,
   onSelectAccessorySuggestion,
   onSubmitSearch,
@@ -67,6 +69,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     setFocused(false);
     if (sug.type === 'model' && sug.product) {
       onSelectProductSuggestion(sug.product);
+      return;
+    }
+    if (sug.type === 'series' && sug.brandName && sug.seriesName && onSelectSeriesSuggestion) {
+      setLocalInput('');
+      onChange('');
+      onSelectSeriesSuggestion(sug.brandName, sug.seriesName);
       return;
     }
     if (sug.type === 'brand' && sug.brandName) {

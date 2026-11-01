@@ -2,8 +2,9 @@ import React from 'react';
 import { X, Trash2 } from 'lucide-react';
 import {
   SmartphoneProduct,
-  formatComparisonValue,
   formatStockStatusBadge,
+  buildPriceListWhatsAppMessage,
+  PRICE_CHANGE_DISCLAIMER,
 } from '../../utils/storeLogic';
 import { OriginalProductImageFrame } from './OriginalProductImageFrame';
 import { WhatsAppButton } from './WhatsAppButton';
@@ -30,44 +31,37 @@ export const ComparePanel: React.FC<ComparePanelProps> = ({
     render: (phone: SmartphoneProduct) => string;
   }> = [
     {
-      label: 'Price',
-      render: (phone) => formatComparisonValue(phone.offerPrice ?? phone.price, true),
+      label: 'Brand & Series',
+      render: (phone) => `${phone.brand} · ${phone.series}`,
     },
     {
-      label: 'Display',
-      render: (phone) => formatComparisonValue(phone.display),
+      label: 'Model Name',
+      render: (phone) => phone.model || phone.modelName,
     },
     {
-      label: 'Processor',
-      render: (phone) => formatComparisonValue(phone.processor),
+      label: 'RAM + Storage Variant',
+      render: (phone) => phone.variant || 'Check with store',
     },
     {
-      label: 'RAM',
-      render: (phone) => formatComparisonValue(phone.ramOptions),
+      label: 'MOP / Retail Price',
+      render: (phone) => phone.mopPrice || 'Check with store',
     },
     {
-      label: 'Storage',
-      render: (phone) => formatComparisonValue(phone.storageOptions),
+      label: 'Dealer Price',
+      render: (phone) => phone.dealerPrice || '—',
     },
     {
-      label: 'Camera',
-      render: (phone) => formatComparisonValue(phone.rearCamera),
+      label: 'Effective Price',
+      render: (phone) => phone.effectivePrice || '—',
     },
     {
-      label: 'Battery',
-      render: (phone) => formatComparisonValue(phone.battery),
-    },
-    {
-      label: 'Charging',
-      render: (phone) => formatComparisonValue(phone.charging),
+      label: 'Available Colours',
+      render: (phone) =>
+        phone.colors && phone.colors.length > 0 ? phone.colors.join(', ') : '—',
     },
     {
       label: '5G / Network',
-      render: (phone) => formatComparisonValue(phone.network),
-    },
-    {
-      label: 'Operating System',
-      render: (phone) => formatComparisonValue(phone.os),
+      render: (phone) => phone.network || 'Check with store',
     },
   ];
 
@@ -85,7 +79,7 @@ export const ComparePanel: React.FC<ComparePanelProps> = ({
               Compare Smartphones ({items.length} of 3 selected)
             </h3>
             <p className="text-xs text-zinc-400">
-              Side-by-side comparison · Unverified specifications show &ldquo;Check with store&rdquo;
+              {PRICE_CHANGE_DISCLAIMER}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -123,7 +117,7 @@ export const ComparePanel: React.FC<ComparePanelProps> = ({
                           imageSrc={phone.productImage || phone.galleryImages?.front}
                           altText={phone.modelName}
                           brandLabel={phone.brand}
-                          modelOrCategoryLabel={phone.modelName}
+                          modelOrCategoryLabel={phone.model || phone.modelName}
                           theme="dark"
                           showViewDetailsHint={false}
                         />
@@ -146,8 +140,13 @@ export const ComparePanel: React.FC<ComparePanelProps> = ({
                           </span>
                         </div>
                         <p className="mt-1 font-display text-sm font-bold text-white">
-                          {phone.modelName}
+                          {phone.model || phone.modelName}
                         </p>
+                        {phone.variant && (
+                          <p className="mt-0.5 text-[11px] font-mono text-amber-300">
+                            {phone.variant}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </th>
@@ -164,7 +163,9 @@ export const ComparePanel: React.FC<ComparePanelProps> = ({
                       <td
                         key={`${phone.id}-${row.label}`}
                         className={`py-3.5 px-3 font-medium ${
-                          value === 'Check with store' ? 'text-amber-400/90' : 'text-zinc-100'
+                          value === 'Check with store' || value === '—'
+                            ? 'text-zinc-400'
+                            : 'text-zinc-100'
                         }`}
                       >
                         {value}
@@ -175,17 +176,25 @@ export const ComparePanel: React.FC<ComparePanelProps> = ({
               ))}
               <tr>
                 <td className="py-4 px-3 font-semibold text-zinc-400">Enquire Now</td>
-                {items.map((phone) => (
-                  <td key={`${phone.id}-cta`} className="py-4 px-3">
-                    <WhatsAppButton
-                      productName={phone.modelName}
-                      label="WhatsApp Enquiry"
-                      size="sm"
-                      variant="amber"
-                      className="w-full"
-                    />
-                  </td>
-                ))}
+                {items.map((phone) => {
+                  const whatsappMsg = buildPriceListWhatsAppMessage({
+                    brand: phone.brand,
+                    model: phone.model || phone.modelName,
+                    variant: phone.variant || 'Standard',
+                    price: phone.mopPrice || phone.effectivePrice || 'Check Price',
+                  });
+                  return (
+                    <td key={`${phone.id}-cta`} className="py-4 px-3">
+                      <WhatsAppButton
+                        customMessage={whatsappMsg}
+                        label="Enquire on WhatsApp"
+                        size="sm"
+                        variant="amber"
+                        className="w-full"
+                      />
+                    </td>
+                  );
+                })}
               </tr>
             </tbody>
           </table>

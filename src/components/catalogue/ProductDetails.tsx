@@ -2,33 +2,21 @@ import React, { useState, useEffect } from 'react';
 import {
   X,
   Phone,
-  Edit3,
-  Layers,
-  ShieldCheck,
-  Cpu,
-  BatteryCharging,
-  Camera,
-  Smartphone,
-  Star,
-  Upload,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import {
   SmartphoneProduct,
   AccessoryCatalogueItem,
   STORE_INFO,
+  PRICE_CHANGE_DISCLAIMER,
   buildWhatsAppUrl,
-  buildPhoneModelWhatsAppMessage,
-  buildProductEnquiryWhatsAppMessage,
-  getCompatibleAccessoriesForPhone,
-  getRelatedProductsForPhone,
+  buildPriceListWhatsAppMessage,
   formatStockStatusBadge,
-  formatVerifiedSpecValue,
   getProductGallerySlots,
 } from '../../utils/storeLogic';
 import { OriginalProductImageFrame } from './OriginalProductImageFrame';
 import { WhatsAppButton } from './WhatsAppButton';
-import { AccessoryCard } from './AccessoryCard';
-import { ProductCard } from './ProductCard';
 
 interface ProductDetailsProps {
   product: SmartphoneProduct | null;
@@ -46,25 +34,22 @@ interface ProductDetailsProps {
 export const ProductDetails: React.FC<ProductDetailsProps> = ({
   product,
   catalogue,
-  accessories,
   compareList,
   onClose,
   onSelectProduct,
   onSelectBrand,
   onSelectSeries,
-  onEditModelInAdmin,
   onToggleCompare,
 }) => {
-  const [selectedRam, setSelectedRam] = useState('');
-  const [selectedStorage, setSelectedStorage] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
-  const [activeGalleryIdx, setActiveGalleryIdx] = useState(0);
+  const [activeGalleryIdx, setActiveGalleryIdx] = useState<number | null>(0);
 
   useEffect(() => {
     if (product) {
-      setSelectedRam(product.ramOptions[0] || 'Details available on enquiry');
-      setSelectedStorage(product.storageOptions[0] || 'Details available on enquiry');
-      setSelectedColor(product.colorOptions[0] || 'Details available on enquiry');
+      const validColors = (product.colors || []).filter(
+        (c) => Boolean(c.trim()) && !c.toLowerCase().includes('details available')
+      );
+      setSelectedColor(validColors[0] || '');
       setActiveGalleryIdx(0);
     }
   }, [product]);
@@ -74,61 +59,61 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   const isCompared = compareList.some((c) => c.id === product.id);
   const stockBadge = formatStockStatusBadge(product.availability);
 
-  const variantSummary = [
-    selectedRam && !selectedRam.toLowerCase().includes('details') ? `RAM: ${selectedRam}` : '',
-    selectedStorage && !selectedStorage.toLowerCase().includes('details')
-      ? `Storage: ${selectedStorage}`
-      : '',
-    selectedColor && !selectedColor.toLowerCase().includes('details')
-      ? `Colour: ${selectedColor}`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(', ');
+  const mopDisplay =
+    product.mopPrice?.trim() ||
+    (product.price ? `₹${product.price.toLocaleString('en-IN')}` : 'Check Price');
 
-  const checkPriceHref = buildWhatsAppUrl(
-    buildPhoneModelWhatsAppMessage(product.brand, product.modelName, variantSummary)
+  const hasDealerPrice = Boolean(product.dealerPrice && product.dealerPrice.trim().length > 0);
+  const hasEffectivePrice = Boolean(
+    product.effectivePrice && product.effectivePrice.trim().length > 0
   );
-  const checkAvailabilityHref = buildWhatsAppUrl(
-    `Hello Friends Cell Point, I would like to check the current stock availability of ${product.modelName}${variantSummary ? ` (${variantSummary})` : ''}.`
+  const hasOldRp = Boolean(product.oldRp && product.oldRp.trim().length > 0);
+  const providedColors = (product.colors || []).filter(
+    (c) => Boolean(c.trim()) && !c.toLowerCase().includes('details available')
   );
-  const enquiryMessage = buildProductEnquiryWhatsAppMessage(product.modelName, variantSummary);
 
-  const compatibleAcc = getCompatibleAccessoriesForPhone(
-    accessories,
-    product.brand,
-    product.modelName
+  // All RAM + Storage variants available for this exact model
+  const siblingVariants = catalogue.filter(
+    (item) =>
+      item.brand.toLowerCase() === product.brand.toLowerCase() &&
+      item.modelName.toLowerCase() === product.modelName.toLowerCase()
   );
-  const relatedProducts = getRelatedProductsForPhone(catalogue, product, 4);
 
-  // 10 Required Key Specifications
-  const keySpecRows = [
-    { label: 'Display', value: formatVerifiedSpecValue(product.display), icon: Smartphone },
-    { label: 'Processor', value: formatVerifiedSpecValue(product.processor), icon: Cpu },
-    { label: 'RAM', value: formatVerifiedSpecValue(product.ramOptions), icon: Cpu },
-    { label: 'Storage', value: formatVerifiedSpecValue(product.storageOptions), icon: Layers },
-    { label: 'Rear Camera', value: formatVerifiedSpecValue(product.rearCamera), icon: Camera },
-    { label: 'Front Camera', value: formatVerifiedSpecValue(product.frontCamera), icon: Camera },
-    { label: 'Battery', value: formatVerifiedSpecValue(product.battery), icon: BatteryCharging },
-    { label: 'Charging', value: formatVerifiedSpecValue(product.charging), icon: BatteryCharging },
-    { label: 'Network', value: formatVerifiedSpecValue(product.network), icon: Smartphone },
-    { label: 'Operating System', value: formatVerifiedSpecValue(product.os), icon: ShieldCheck },
-  ];
+  const whatsappEnquiryMessage = buildPriceListWhatsAppMessage({
+    brand: product.brand,
+    model: product.modelName || product.model,
+    variant: product.variant || 'Standard',
+    price: mopDisplay,
+  });
 
-  // 6 Multi-Angle Original Image Gallery Slots: Front, Back, Side, Camera, Display, Box / Package
+  const checkAvailabilityHref = buildWhatsAppUrl(whatsappEnquiryMessage);
+
   const gallerySlots = getProductGallerySlots(product);
-  const activeSlot = gallerySlots[activeGalleryIdx] || gallerySlots[0];
-  const uploadedGalleryCount = gallerySlots.filter((s) => Boolean(s.imageUrl)).length;
+  const uploadedSlots = gallerySlots.filter((s) => Boolean(s.imageUrl));
+  const activeSlot =
+    activeGalleryIdx !== null
+      ? uploadedSlots[activeGalleryIdx] || gallerySlots[0]
+      : gallerySlots[0];
+
+  const colorMatchedImage =
+    selectedColor && product.colorImages?.[selectedColor]
+      ? product.colorImages[selectedColor].trim()
+      : undefined;
+
+  const displayedImageUrl =
+    activeGalleryIdx === null && colorMatchedImage
+      ? colorMatchedImage
+      : activeSlot.imageUrl || colorMatchedImage || product.productImage;
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-start justify-center p-2 sm:p-6"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="pdp-modal-title"
     >
-      <div className="relative w-full max-w-6xl my-4 rounded-3xl bg-[#111319] border border-white/15 text-zinc-100 shadow-2xl overflow-hidden">
-        {/* Top Breadcrumb & Action Bar */}
+      <div className="relative w-full max-w-4xl my-auto rounded-3xl bg-[#111319] border border-white/15 text-zinc-100 shadow-2xl overflow-hidden">
+        {/* Top Navigation & Close Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-8 py-4 bg-[#0B0C0E] border-b border-white/10">
           <nav
             aria-label="Product Breadcrumb"
@@ -142,7 +127,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               }}
               className="hover:text-amber-400 transition-colors cursor-pointer font-medium"
             >
-              {product.brand} Mobiles
+              {product.brand}
             </button>
             <span aria-hidden="true">/</span>
             <button
@@ -156,7 +141,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               {product.series}
             </button>
             <span aria-hidden="true">/</span>
-            <span className="text-white font-semibold truncate max-w-[220px]">
+            <span className="text-white font-semibold truncate max-w-[240px]">
               {product.modelName}
             </span>
           </nav>
@@ -175,14 +160,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onEditModelInAdmin(product)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-zinc-300 hover:text-white cursor-pointer"
-            >
-              <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-              Upload Photos / Edit Specs
-            </button>
-            <button
-              type="button"
               onClick={onClose}
               aria-label="Close product detail view"
               className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
@@ -192,99 +169,72 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
           </div>
         </div>
 
-        {/* ==================================================
-            3. PRODUCT DETAILS PAGE LAYOUT (LEFT GALLERY / RIGHT INFO)
-           ================================================== */}
+        {/* Clean Professional Product Detail Page */}
         <div className="p-5 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* LEFT: Large Original Product Image Gallery (Front, Back, Side, Camera, Display, Box / Package) */}
+          {/* LEFT: [Product Photo] (or Clean "Product Image Unavailable" Placeholder) */}
           <div className="lg:col-span-5 space-y-3">
             <div className="rounded-2xl overflow-hidden border border-white/15 bg-[#12151E]">
               <OriginalProductImageFrame
-                imageSrc={activeSlot.imageUrl}
-                altText={`${product.modelName} - ${activeSlot.label}`}
+                imageSrc={displayedImageUrl}
+                altText={`${product.brand} ${product.modelName}${selectedColor ? ` (${selectedColor})` : ''}`}
                 brandLabel={product.brand}
                 modelOrCategoryLabel={product.modelName}
-                angleLabel={activeSlot.label}
+                angleLabel={
+                  activeGalleryIdx === null && selectedColor
+                    ? selectedColor
+                    : uploadedSlots.length > 1
+                      ? activeSlot.label
+                      : undefined
+                }
                 theme="dark"
                 eager={true}
                 showViewDetailsHint={false}
               />
             </div>
 
-            {/* 6-Angle Original Image Thumbnails: Front, Back, Side, Camera, Display, Box / Package */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2" role="group" aria-label="Original product image gallery angles">
-              {gallerySlots.map((slot, idx) => {
-                const isSelected = activeGalleryIdx === idx;
-                const hasPhoto = Boolean(slot.imageUrl);
-                return (
-                  <button
-                    key={slot.key}
-                    type="button"
-                    onClick={() => setActiveGalleryIdx(idx)}
-                    className={`p-2 rounded-xl border text-[10px] font-semibold text-center transition-colors cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                      isSelected
-                        ? 'bg-amber-500/20 border-amber-400 text-amber-300'
-                        : 'bg-[#0B0C0E] border-white/10 text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    {hasPhoto && (
-                      <img
-                        src={slot.imageUrl!}
-                        alt={`${product.modelName} ${slot.label} thumbnail`}
-                        className="w-8 h-8 object-contain rounded bg-white/5 p-0.5"
-                      />
-                    )}
-                    <span className="leading-tight">{slot.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Quick Store Owner Action: Upload Original Product Image */}
-            <div className="p-3 rounded-xl bg-[#0B0C0E] border border-white/10 flex items-center justify-between gap-2 text-xs">
-              <span className="text-zinc-400">
-                {uploadedGalleryCount > 0
-                  ? `${uploadedGalleryCount} original photo(s) uploaded`
-                  : 'Original product photos (no AI substitute)'}
-              </span>
-              <button
-                type="button"
-                onClick={() => onEditModelInAdmin(product)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-300 font-semibold cursor-pointer whitespace-nowrap"
+            {uploadedSlots.length > 1 && (
+              <div
+                className="grid grid-cols-4 sm:grid-cols-6 gap-2"
+                role="group"
+                aria-label="Product photo gallery"
               >
-                <Upload className="w-3.5 h-3.5" />
-                Upload Original Image
-              </button>
-            </div>
-          </div>
-
-          {/* RIGHT: Brand, Model Name, Verified Rating (only if verified), Price, Availability, Variants & 4 Buttons */}
-          <div className="lg:col-span-7 space-y-5">
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                    {product.brand} · {product.series}
-                  </span>
-                  {product.generation && (
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                        product.generation === 'Current Model'
-                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                          : 'bg-white/5 text-zinc-300 border-white/15'
+                {uploadedSlots.map((slot, idx) => {
+                  const isSelected = activeGalleryIdx === idx;
+                  return (
+                    <button
+                      key={slot.key}
+                      type="button"
+                      onClick={() => setActiveGalleryIdx(idx)}
+                      className={`p-2 rounded-xl border text-[10px] font-semibold text-center transition-colors cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                        isSelected
+                          ? 'bg-amber-500/20 border-amber-400 text-amber-300'
+                          : 'bg-[#0B0C0E] border-white/10 text-zinc-400 hover:text-white'
                       }`}
                     >
-                      {product.generation}
-                    </span>
-                  )}
-                  {product.modelNumber && (
-                    <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300">
-                      Model No: {product.modelNumber}
-                    </span>
-                  )}
+                      <img
+                        src={slot.imageUrl!}
+                        alt={`${product.modelName} ${slot.label}`}
+                        className="w-8 h-8 object-contain rounded bg-white/5 p-0.5"
+                      />
+                      <span className="leading-tight">{slot.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT: Brand, Series, Model Name, Available Colours, RAM + Storage Variant, Prices, CTAs & Disclaimer */}
+          <div className="lg:col-span-7 space-y-5">
+            {/* Brand, Series & Model Name */}
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400">
+                  <span>{product.brand}</span>
+                  <span className="text-zinc-500">·</span>
+                  <span className="text-zinc-300">{product.series}</span>
                 </div>
 
-                {/* Stock Status Badge */}
                 <span
                   className={`text-xs font-bold px-3 py-1 rounded-lg border ${
                     stockBadge === 'AVAILABLE'
@@ -304,144 +254,134 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               >
                 {product.modelName}
               </h2>
-
-              {product.sourceUrl && (
-                <div className="mt-1.5 text-xs text-zinc-400">
-                  Official Brand Catalogue Reference:{' '}
-                  <a
-                    href={product.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-amber-400 hover:underline font-medium"
-                  >
-                    {product.brand} Official Website ↗
-                  </a>
-                </div>
-              )}
-
-              {/* Rating area ONLY if verified */}
-              {typeof product.verifiedRating === 'number' && product.verifiedRating > 0 && (
-                <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-amber-400">
-                  <Star className="w-3.5 h-3.5 fill-amber-400" />
-                  <span className="font-bold">{product.verifiedRating.toFixed(1)}</span>
-                  {product.verifiedReviewCount && (
-                    <span className="text-zinc-400">
-                      ({product.verifiedReviewCount} Verified Store Ratings)
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Price / Check Price Box */}
-              <div className="mt-4 p-4 rounded-xl bg-white/[0.03] border border-white/10 flex flex-wrap items-baseline justify-between gap-4">
-                <div>
-                  <span className="text-xs text-zinc-400 block">Price</span>
-                  {product.offerPrice || product.price ? (
-                    <div className="flex items-baseline gap-2.5 mt-0.5">
-                      <span className="font-mono-num text-2xl font-bold text-white">
-                        ₹{(product.offerPrice ?? product.price)?.toLocaleString('en-IN')}
-                      </span>
-                      {product.originalPrice && (
-                        <span className="font-mono-num text-sm text-zinc-500 line-through">
-                          ₹{product.originalPrice.toLocaleString('en-IN')}
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="font-display text-lg font-bold text-amber-400 mt-0.5 block">
-                      Check Price
-                    </span>
-                  )}
-                </div>
-                <div className="text-right">
-                  <span className="text-xs text-zinc-400 block">Availability</span>
-                  <strong className="text-xs sm:text-sm text-white">{stockBadge}</strong>
-                </div>
-              </div>
             </div>
 
-            {/* Storage Variants, RAM Variants & Colour Options */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Available Colours (only if available in product data) */}
+            {providedColors.length > 0 && (
               <div>
-                <label htmlFor="pdp-storage-select" className="block text-xs text-zinc-400 mb-1">
-                  Storage Variants
-                </label>
-                <select
-                  id="pdp-storage-select"
-                  value={selectedStorage}
-                  onChange={(e) => setSelectedStorage(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#0B0C0E] border border-white/15 text-xs text-white"
-                >
-                  {product.storageOptions.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="pdp-ram-select" className="block text-xs text-zinc-400 mb-1">
-                  RAM Variants
-                </label>
-                <select
-                  id="pdp-ram-select"
-                  value={selectedRam}
-                  onChange={(e) => setSelectedRam(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#0B0C0E] border border-white/15 text-xs text-white"
-                >
-                  {product.ramOptions.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="pdp-color-select" className="block text-xs text-zinc-400 mb-1">
-                  Colour Options
-                </label>
-                <select
-                  id="pdp-color-select"
-                  value={selectedColor}
-                  onChange={(e) => setSelectedColor(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#0B0C0E] border border-white/15 text-xs text-white"
-                >
-                  {product.colorOptions.map((c) => (
-                    <option key={c} value={c}>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                  Available Colours
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {providedColors.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        setSelectedColor(c);
+                        if (product.colorImages?.[c]) {
+                          setActiveGalleryIdx(null);
+                        }
+                      }}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                        selectedColor === c
+                          ? 'bg-amber-500 text-zinc-950 border-amber-400'
+                          : 'bg-[#0B0C0E] text-zinc-200 border-white/15 hover:border-white/30'
+                      }`}
+                    >
                       {c}
-                    </option>
+                    </button>
                   ))}
-                </select>
+                </div>
+              </div>
+            )}
+
+            {/* RAM + Storage Variant */}
+            <div>
+              <span className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                RAM + Storage Variant
+              </span>
+              {siblingVariants.length > 1 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {siblingVariants.map((sib) => {
+                    const isCurrent = sib.id === product.id;
+                    return (
+                      <button
+                        key={sib.id}
+                        type="button"
+                        onClick={() => onSelectProduct(sib)}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                          isCurrent
+                            ? 'bg-amber-500/20 border-amber-400 text-white'
+                            : 'bg-[#0B0C0E] border-white/10 text-zinc-300 hover:border-white/30'
+                        }`}
+                      >
+                        <span className="font-mono text-xs font-bold">
+                          {sib.variant || 'Standard'}
+                        </span>
+                        <span className="font-mono-num text-xs font-bold text-amber-400">
+                          {sib.mopPrice}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="inline-flex items-center px-3.5 py-2 rounded-xl bg-[#0B0C0E] border border-white/15 font-mono text-xs sm:text-sm font-bold text-amber-400">
+                  {product.variant || 'Standard'}
+                </div>
+              )}
+            </div>
+
+            {/* MOP / Retail Price & Dealer Price (only if available) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.04] border border-white/15 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <span className="text-xs text-zinc-400 block">MOP / Retail Price</span>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="font-mono-num text-2xl font-bold text-white">
+                      {mopDisplay}
+                    </span>
+                    {hasOldRp && (
+                      <span className="font-mono-num text-xs text-zinc-400 line-through">
+                        {product.oldRp}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {hasDealerPrice && (
+                  <div>
+                    <span className="text-xs text-amber-300/90 block">Dealer Price</span>
+                    <span className="font-mono-num text-xl font-bold text-amber-400 mt-0.5 block">
+                      {product.dealerPrice}
+                    </span>
+                  </div>
+                )}
+
+                {hasEffectivePrice && (
+                  <div>
+                    <span className="text-xs text-emerald-300/90 block">Effective Price</span>
+                    <span className="font-mono-num text-xl font-bold text-emerald-400 mt-0.5 block">
+                      {product.effectivePrice}
+                    </span>
+                    {(product.discountFullSwipe || product.discountEmi) && (
+                      <span className="text-[11px] text-emerald-300 block">
+                        Offer: {product.discountFullSwipe || product.discountEmi}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* 4 Required Action Buttons: CHECK PRICE, CHECK AVAILABILITY, WHATSAPP ENQUIRY, CALL STORE */}
-            <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <a
-                href={checkPriceHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-4 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs tracking-wide transition-colors text-center"
-              >
-                CHECK PRICE
-              </a>
-
+            {/* Action Buttons: Check Availability, WhatsApp Enquiry, Call Now */}
+            <div className="pt-1 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <a
                 href={checkAvailabilityHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs tracking-wide transition-colors text-center"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs tracking-wide transition-colors text-center"
               >
-                CHECK AVAILABILITY
+                <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Check Availability</span>
               </a>
 
               <WhatsAppButton
-                productName={product.modelName}
-                variantNote={variantSummary}
-                label="WHATSAPP ENQUIRY"
-                variant="emerald"
+                customMessage={whatsappEnquiryMessage}
+                productName={`${product.modelName} (${product.variant})`}
+                label="WhatsApp Enquiry"
+                variant="amber"
                 size="md"
                 className="font-bold w-full"
               />
@@ -451,97 +391,16 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs tracking-wide transition-colors"
               >
                 <Phone className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>CALL STORE</span>
+                <span>Call Now</span>
               </a>
             </div>
 
-            <div className="p-3 rounded-xl bg-[#0B0C0E] border border-white/10 text-[11px] text-zinc-400">
-              <span className="text-zinc-300 font-medium">WhatsApp Enquiry Message: </span>
-              &ldquo;{enquiryMessage}&rdquo;
+            {/* Price Disclaimer */}
+            <div className="p-3.5 rounded-xl bg-[#0B0C0E] border border-white/10 flex items-start gap-2.5 text-xs text-zinc-300">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+              <span>{PRICE_CHANGE_DISCLAIMER}</span>
             </div>
           </div>
-        </div>
-
-        {/* ==================================================
-            BELOW: KEY SPECIFICATIONS (10 Verified Fields)
-           ================================================== */}
-        <div className="px-5 sm:px-8 pb-8 pt-6 border-t border-white/10">
-          <h3 className="font-display text-lg font-bold text-white mb-4">
-            KEY SPECIFICATIONS
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {keySpecRows.map((row) => (
-              <div
-                key={row.label}
-                className="p-3.5 rounded-xl bg-[#0B0C0E] border border-white/10 flex items-start justify-between gap-4"
-              >
-                <span className="text-xs text-zinc-400 shrink-0">{row.label}</span>
-                <span className="text-xs font-medium text-zinc-200 text-right">{row.value}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* ==================================================
-              8. ACCESSORIES FOR THIS PHONE
-             ================================================== */}
-          {compatibleAcc.allCompatibleList.length > 0 && (
-            <div className="mt-10 pt-8 border-t border-white/10">
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-5">
-                <div>
-                  <span className="text-xs font-semibold text-amber-400">
-                    Confirmed Catalogue Compatibility
-                  </span>
-                  <h4 className="font-display text-xl font-bold text-white mt-0.5">
-                    ACCESSORIES FOR THIS PHONE
-                  </h4>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    Cases, Tempered Glass, Chargers, Cables, Earphones, TWS &amp; other compatible
-                    accessories for {product.modelName}.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5">
-                {compatibleAcc.allCompatibleList.map(({ label, item }) => (
-                  <AccessoryCard
-                    key={`${product.id}-${label}`}
-                    accessory={item}
-                    forPhoneModel={product.modelName}
-                    compatibilityLabel={label}
-                    darkTheme
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ==================================================
-              4. RELATED PRODUCTS ("YOU MAY ALSO LIKE")
-             ================================================== */}
-          {relatedProducts.length > 0 && (
-            <div className="mt-10 pt-8 border-t border-white/10">
-              <div className="mb-5">
-                <span className="text-xs font-semibold text-amber-400">
-                  Related {product.brand} &amp; Category Models
-                </span>
-                <h4 className="font-display text-xl font-bold text-white mt-0.5">
-                  YOU MAY ALSO LIKE
-                </h4>
-              </div>
-
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-                {relatedProducts.map((relPhone) => (
-                  <ProductCard
-                    key={relPhone.id}
-                    phone={relPhone}
-                    isCompared={compareList.some((c) => c.id === relPhone.id)}
-                    onViewDetails={(chosen) => onSelectProduct(chosen)}
-                    onToggleCompare={onToggleCompare}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -2,6 +2,28 @@ import {
   VERIFIED_BRAND_SERIES_MODELS_MAP,
   OFFICIAL_BRAND_SOURCE_URLS,
 } from './verifiedModelsDataset';
+import {
+  CENTRALIZED_PRICE_LIST_DATA,
+  PRICE_CHANGE_DISCLAIMER,
+  PRICE_LIST_SOURCES,
+  parseNumericPrice,
+  PriceListProductEntry,
+} from './priceListDataset';
+import {
+  resolveVerifiedProductImages,
+  VERIFIED_PRODUCT_IMAGE_HIERARCHY,
+  VerifiedProductImageRecord,
+} from './productImageMapping';
+
+export {
+  CENTRALIZED_PRICE_LIST_DATA,
+  PRICE_CHANGE_DISCLAIMER,
+  PRICE_LIST_SOURCES,
+  parseNumericPrice,
+  resolveVerifiedProductImages,
+  VERIFIED_PRODUCT_IMAGE_HIERARCHY,
+};
+export type { PriceListProductEntry, VerifiedProductImageRecord };
 
 export type InventoryStatus =
   | 'Check Availability'
@@ -32,6 +54,18 @@ export type SortOption =
   | 'brand-asc'
   | 'price-asc'
   | 'price-desc';
+
+export type PriceRangeFilterOption =
+  | 'All'
+  | 'Under ₹10,000'
+  | '₹10,000 - ₹20,000'
+  | '₹20,000 - ₹35,000'
+  | '₹35,000 - ₹60,000'
+  | 'Above ₹60,000'
+  | 'Budget'
+  | 'Mid-Range'
+  | 'Premium'
+  | 'Flagship';
 
 export type AccessoryCategoryName =
   | 'Mobile Covers'
@@ -98,16 +132,33 @@ export interface SmartphoneProduct {
   id: string;
   productName: string;
   brand: string;
+  series: string;
   model: string;
   modelName: string;
+  variant: string;
+  colors: string[];
+  colorOptions: string[];
+  mopPrice: string;
+  dealerPrice: string;
+  effectivePrice: string;
+  oldRp?: string;
+  newRp?: string;
+  discountFullSwipe?: string;
+  discountEmi?: string;
+  offerPeriod?: string;
+  notes?: string;
+  source: string;
+  sourceImage?: string;
+  lastUpdated: string;
+  productType?: 'smartphone' | 'feature-phone' | 'wearable' | 'accessory';
   modelNumber?: string;
-  series: string;
   generation?: 'Current Model' | 'Previous Model';
   // Original uploaded product image & multi-angle gallery (never AI-substituted)
   image?: string;
   productImage?: string;
   sourceUrl?: string;
   galleryImages?: ProductGalleryImages;
+  colorImages?: Record<string, string>;
   visualVariant:
     | 'titanium-pro'
     | 'ultra-display'
@@ -147,8 +198,6 @@ export interface SmartphoneProduct {
     | 'All-Day Battery'
     | 'High-Capacity Battery'
     | 'Details available on enquiry';
-  colorOptions: string[];
-  colors: string[];
   launchInfo: string;
   verifiedRating?: number | null;
   verifiedReviewCount?: number | null;
@@ -210,7 +259,7 @@ export interface AdvancedMobileFilterState {
   series: string;
   generationFilter?: 'All' | 'Current Model' | 'Previous Model';
   category: MobileCategorySlug;
-  priceRange: 'All' | 'Budget' | 'Mid-Range' | 'Premium' | 'Flagship';
+  priceRange: PriceRangeFilterOption;
   ram: string;
   storage: string;
   network5G: 'All' | '5G' | '4G';
@@ -229,8 +278,24 @@ export interface SearchSuggestionItem {
   sublabel: string;
   queryValue: string;
   brandName?: string;
+  seriesName?: string;
   product?: SmartphoneProduct;
   accessoryCategory?: AccessoryCategoryName;
+}
+
+export interface CatalogueAuditReport {
+  totalVerifiedBrands: number;
+  totalVerifiedSeries: number;
+  totalVerifiedModels: number;
+  brandsWithIncompleteData: string[];
+  seriesWithIncompleteData: string[];
+  modelsWithoutVerifiedImages: Array<{
+    brand: string;
+    series: string;
+    modelName: string;
+  }>;
+  modelCountByBrand: Record<string, number>;
+  seriesCountByBrand: Record<string, number>;
 }
 
 export interface OfferCardItem {
@@ -365,13 +430,13 @@ export function getProductGallerySlots(product: {
 }
 
 export const HOMEPAGE_POPULAR_SEARCH_CHIPS: string[] = [
-  'iPhone',
-  'Samsung',
-  'OnePlus',
   'vivo',
-  'OPPO',
   'Redmi',
-  'realme',
+  'Xiaomi',
+  'Nothing',
+  'Lava',
+  'Google Pixel',
+  '8GB + 256GB',
   '5G Phones',
   'TWS',
   'Tempered Glass',
@@ -382,58 +447,58 @@ export const HOMEPAGE_MOBILE_CATEGORIES: HomepageMobileCategoryCard[] = [
   {
     id: 'cat-all-mobiles',
     title: 'All Mobiles',
-    subtitle: 'Complete multi-brand smartphone directory across all series.',
+    subtitle: 'Complete smartphone directory across vivo, Redmi, Xiaomi, Nothing, Lava & Google Pixel.',
     targetCategory: 'All Smartphones',
-    badge: 'Full Catalogue',
+    badge: 'All Models',
   },
   {
     id: 'cat-5g-mobiles',
     title: '5G Mobiles',
-    subtitle: 'Next-generation 5G connectivity across budget to flagship tiers.',
+    subtitle: '5G smartphones across vivo, Redmi, Xiaomi, Nothing & Google Pixel.',
     targetCategory: '5G Smartphones',
-    badge: 'High-Speed 5G',
+    badge: '5G Models',
   },
   {
     id: 'cat-budget-mobiles',
     title: 'Budget Mobiles',
-    subtitle: 'Dependable daily smartphones focused on battery and value.',
+    subtitle: 'Keypad & entry smartphones under ₹15,000 from Lava, Redmi & vivo.',
     targetCategory: 'Budget Smartphones',
-    badge: 'Everyday Value',
+    badge: 'Under ₹15,000',
   },
   {
     id: 'cat-midrange-mobiles',
     title: 'Mid-Range Mobiles',
-    subtitle: 'Balanced AMOLED displays, fast charging and versatile cameras.',
+    subtitle: 'Models between ₹15,000 and ₹35,000 across vivo, Redmi & Nothing.',
     targetCategory: 'Mid-Range Smartphones',
-    badge: 'Balanced Choice',
+    badge: '₹15K – ₹35K',
   },
   {
     id: 'cat-premium-mobiles',
     title: 'Premium Mobiles',
-    subtitle: 'Refined design, flagship-grade materials and smooth performance.',
+    subtitle: 'Models between ₹35,000 and ₹65,000 across vivo V/S/T, Xiaomi, Nothing & Pixel.',
     targetCategory: 'Premium Smartphones',
-    badge: 'Premium Series',
+    badge: '₹35K – ₹65K',
   },
   {
     id: 'cat-flagship-mobiles',
     title: 'Flagship Mobiles',
-    subtitle: 'Top-tier processors, pro camera systems and ultra displays.',
+    subtitle: 'Flagship & foldable devices above ₹65,000 across vivo X, Xiaomi Ultra & Pixel Pro.',
     targetCategory: 'Flagship Smartphones',
-    badge: 'Top Tier',
+    badge: 'Flagship Tier',
   },
   {
     id: 'cat-gaming-mobiles',
     title: 'Gaming Mobiles',
-    subtitle: 'High-refresh displays, fast touch response and sustained cooling.',
+    subtitle: 'High-performance T Series, Note Pro & Ultra series smartphones.',
     targetCategory: 'Gaming Smartphones',
     badge: 'Performance',
   },
   {
     id: 'cat-camera-mobiles',
     title: 'Camera Mobiles',
-    subtitle: 'Portrait optics, night photography and stabilised video capture.',
+    subtitle: 'vivo V & X Series, Xiaomi 17 Series and Google Pixel 10/11 Pro lineup.',
     targetCategory: 'Camera Smartphones',
-    badge: 'Pro Optics',
+    badge: 'Flagship Optics',
   },
 ];
 
@@ -519,234 +584,143 @@ export const HOMEPAGE_ACCESSORY_ENTRY_TILES: HomepageAccessoryEntryTile[] = [
 
 export const INITIAL_BRAND_DIRECTORY: BrandDirectoryEntry[] = [
   {
-    id: 'brand-apple',
-    name: 'Apple',
-    monogram: 'AP',
-    originNote: 'iPhone Series Smartphones',
-    seriesList: ['iPhone Pro Series', 'iPhone Number Series', 'iPhone Plus Series', 'iPhone SE & Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-samsung',
-    name: 'Samsung',
-    monogram: 'SM',
-    originNote: 'Galaxy Smartphone Lineup',
-    seriesList: ['Galaxy S Series', 'Galaxy A Series', 'Galaxy M Series', 'Galaxy F Series', 'Galaxy Z Series', 'Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-oneplus',
-    name: 'OnePlus',
-    monogram: '1+',
-    originNote: 'Flagship & Nord Series',
-    seriesList: ['OnePlus Number Flagship Series', 'OnePlus R Series', 'OnePlus Nord Series', 'OnePlus Nord CE Series', 'OnePlus Open & Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-oppo',
-    name: 'OPPO',
-    monogram: 'OP',
-    originNote: 'Reno, Find, F & A Series',
-    seriesList: ['Find Series', 'Reno Series', 'F Series', 'A Series', 'K Series', 'Other Models'],
-    featured: true,
-  },
-  {
     id: 'brand-vivo',
     name: 'vivo',
     monogram: 'VV',
-    originNote: 'X, V, T & Y Series',
-    seriesList: ['X Series', 'V Series', 'T Series', 'Y Series', 'Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-xiaomi',
-    name: 'Xiaomi',
-    monogram: 'MI',
-    originNote: 'Flagship & Civi Series',
-    seriesList: ['Xiaomi Number Series', 'Xiaomi Ultra Series', 'Xiaomi Civi Series', 'Other Models'],
+    originNote: 'Y, S, V, T, X Series & Accessories',
+    seriesList: ['Y SERIES', 'S SERIES', 'V SERIES', 'T SERIES', 'X SERIES', 'Accessories'],
     featured: true,
   },
   {
     id: 'brand-redmi',
     name: 'Redmi',
     monogram: 'RM',
-    originNote: 'Note, Number & A Series',
-    seriesList: ['Redmi Note Pro Series', 'Redmi Note Series', 'Redmi Number Series', 'Redmi A Series', 'Other Models'],
+    originNote: 'Redmi A, C, Number & Note Series',
+    seriesList: ['Redmi A Series', 'Redmi C Series', 'Redmi Number Series', 'Redmi Note Series'],
     featured: true,
   },
   {
-    id: 'brand-realme',
-    name: 'realme',
-    monogram: 'RL',
-    originNote: 'GT, Number, P, C & Narzo Series',
-    seriesList: ['GT Series', 'Number Pro+ & Pro Series', 'P Series', 'Narzo Series', 'C Series', 'Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-iqoo',
-    name: 'iQOO',
-    monogram: 'iQ',
-    originNote: 'Flagship, Neo & Z Series',
-    seriesList: ['iQOO Number Flagship Series', 'iQOO Neo Series', 'iQOO Z Series', 'Other Models'],
+    id: 'brand-xiaomi',
+    name: 'Xiaomi',
+    monogram: 'MI',
+    originNote: 'Xiaomi 17, 17T & 17 Ultra Series',
+    seriesList: ['Xiaomi 17 Series'],
     featured: true,
   },
   {
     id: 'brand-nothing',
     name: 'Nothing',
     monogram: 'NT',
-    originNote: 'Phone Series & Glyph OS',
-    seriesList: ['Phone Flagship Series', 'Phone (a) Series', 'Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-motorola',
-    name: 'Motorola',
-    monogram: 'MT',
-    originNote: 'Razr, Edge, Moto G & E Series',
-    seriesList: ['Razr Series', 'Edge Series', 'Moto G Series', 'Moto E Series', 'Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-pixel',
-    name: 'Google Pixel',
-    monogram: 'PX',
-    originNote: 'Pixel Pro, Number & A Series',
-    seriesList: ['Pixel Pro Series', 'Pixel Number Series', 'Pixel a-Series', 'Pixel Fold & Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-poco',
-    name: 'POCO',
-    monogram: 'PC',
-    originNote: 'F, X, M & C Series',
-    seriesList: ['POCO F Series', 'POCO X Series', 'POCO M Series', 'POCO C Series', 'Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-infinix',
-    name: 'Infinix',
-    monogram: 'IX',
-    originNote: 'GT, Zero, Note, Hot & Smart Series',
-    seriesList: ['GT Series', 'Zero Series', 'Note Series', 'Hot Series', 'Smart Series', 'Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-tecno',
-    name: 'TECNO',
-    monogram: 'TC',
-    originNote: 'Phantom, Camon, Pova, Spark & Pop',
-    seriesList: ['Phantom Series', 'Camon Series', 'Pova Series', 'Spark Series', 'Pop Series', 'Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-nokia',
-    name: 'Nokia',
-    monogram: 'NK',
-    originNote: '5G Smartphones & Classic Keypad',
-    seriesList: ['G Series Smartphones', 'C Series Smartphones', 'Feature & Keypad Phones', 'Other Models'],
-    featured: true,
-  },
-  {
-    id: 'brand-honor',
-    name: 'HONOR',
-    monogram: 'HN',
-    originNote: 'Magic, Number & X Series',
-    seriesList: ['Magic Series', 'HONOR Number Series', 'HONOR X Series', 'Other Models'],
+    originNote: 'Phone 3a Lite, 4b, 4a & 4a Pro',
+    seriesList: ['Phone 3a Series', 'Phone 4 Series'],
     featured: true,
   },
   {
     id: 'brand-lava',
     name: 'Lava',
     monogram: 'LV',
-    originNote: 'Agni, Blaze, Storm & Yuva Series',
-    seriesList: ['Agni Series', 'Blaze Series', 'Storm Series', 'Yuva Series', 'Keypad & Other Models'],
+    originNote: 'Feature Phone Series',
+    seriesList: ['Feature Phone Series'],
     featured: true,
   },
   {
-    id: 'brand-itel',
-    name: 'Itel',
-    monogram: 'IT',
-    originNote: 'S, P, A Series & Keypad Phones',
-    seriesList: ['Color Pro & S Series', 'P Series', 'A Series', 'Keypad Phones', 'Other Models'],
+    id: 'brand-pixel',
+    name: 'Google Pixel',
+    monogram: 'PX',
+    originNote: 'Pixel 10, Pixel 11, Watch 5 & Fitbit',
+    seriesList: ['Pixel 10 Series', 'Pixel 11 Series', 'Wearables & Watches'],
     featured: true,
-  },
-  {
-    id: 'brand-micromax',
-    name: 'Micromax',
-    monogram: 'MM',
-    originNote: 'IN Series & Feature Handsets',
-    seriesList: ['IN Note Series', 'IN B Series', 'Feature Phones', 'Other Models'],
-    featured: false,
-  },
-  {
-    id: 'brand-asus',
-    name: 'ASUS',
-    monogram: 'AS',
-    originNote: 'Zenfone & Compact Flagships',
-    seriesList: ['Zenfone Series', 'Other Models'],
-    featured: false,
-  },
-  {
-    id: 'brand-sony',
-    name: 'Sony',
-    monogram: 'SN',
-    originNote: 'Xperia 1, 5 & 10 Series',
-    seriesList: ['Xperia 1 Series', 'Xperia 5 Series', 'Xperia 10 Series', 'Other Models'],
-    featured: false,
-  },
-  {
-    id: 'brand-hmd',
-    name: 'HMD',
-    monogram: 'HM',
-    originNote: 'Crest, Pulse & Feature Devices',
-    seriesList: ['HMD Crest Series', 'HMD Pulse Series', 'Feature Phones', 'Other Models'],
-    featured: false,
-  },
-  {
-    id: 'brand-cmf',
-    name: 'CMF',
-    monogram: 'CM',
-    originNote: 'CMF by Nothing Modular Series',
-    seriesList: ['CMF Phone Series', 'Other Models'],
-    featured: false,
-  },
-  {
-    id: 'brand-zte',
-    name: 'ZTE',
-    monogram: 'ZT',
-    originNote: 'Axon & Blade Series',
-    seriesList: ['Axon Series', 'Blade Series', 'Other Models'],
-    featured: false,
-  },
-  {
-    id: 'brand-nubia',
-    name: 'nubia',
-    monogram: 'NB',
-    originNote: 'Z Series, Flip & Neo Series',
-    seriesList: ['nubia Z Series', 'nubia Flip Series', 'nubia Neo Series', 'Other Models'],
-    featured: false,
-  },
-  {
-    id: 'brand-lenovo',
-    name: 'Lenovo',
-    monogram: 'LN',
-    originNote: 'Legion & K Series Devices',
-    seriesList: ['Legion Series', 'K Series', 'Other Models'],
-    featured: false,
-  },
-  {
-    id: 'brand-rog',
-    name: 'ROG',
-    monogram: 'RG',
-    originNote: 'Republic of Gamers Smartphones',
-    seriesList: ['ROG Phone Pro Series', 'ROG Phone Number Series', 'Other Models'],
-    featured: false,
   },
 ];
 
-function createCatalogueSeedProducts(brands: BrandDirectoryEntry[]): SmartphoneProduct[] {
-  const products: SmartphoneProduct[] = [];
-  let orderCounter = 1;
+function extractRamAndStorageFromVariant(variant: string): {
+  ramOptions: string[];
+  storageOptions: string[];
+} {
+  const clean = variant.trim();
+  if (!clean) {
+    return { ramOptions: [], storageOptions: [] };
+  }
+  if (clean.includes('+')) {
+    const [rawRam, rawStorage] = clean.split('+').map((s) => s.trim());
+    const ramFormatted =
+      rawRam && /^\d+$/.test(rawRam) ? `${rawRam}GB` : rawRam;
+    const storageFormatted =
+      rawStorage && /^\d+$/.test(rawStorage) ? `${rawStorage}GB` : rawStorage;
+    return {
+      ramOptions: ramFormatted ? [ramFormatted] : [clean],
+      storageOptions: storageFormatted ? [storageFormatted] : [clean],
+    };
+  }
+  return {
+    ramOptions: [clean],
+    storageOptions: [clean],
+  };
+}
+
+function deriveCategoriesFromPriceListEntry(
+  entry: PriceListProductEntry,
+  numericMop: number | null
+): Exclude<MobileCategorySlug, 'All Smartphones'>[] {
+  const cats: Exclude<MobileCategorySlug, 'All Smartphones'>[] = [];
+  const modelUpper = entry.model.toUpperCase();
+  const seriesUpper = entry.series.toUpperCase();
+
+  if (
+    modelUpper.includes('5G') ||
+    entry.brand === 'Nothing' ||
+    entry.brand === 'Xiaomi' ||
+    (entry.brand === 'Google Pixel' && entry.productType === 'smartphone') ||
+    seriesUpper.includes('V SERIES') ||
+    seriesUpper.includes('X SERIES') ||
+    seriesUpper.includes('S SERIES')
+  ) {
+    cats.push('5G Smartphones');
+  }
+
+  if (numericMop !== null) {
+    if (numericMop < 15000) {
+      cats.push('Budget Smartphones');
+    } else if (numericMop <= 35000) {
+      cats.push('Mid-Range Smartphones');
+    } else if (numericMop <= 65000) {
+      cats.push('Premium Smartphones');
+    } else {
+      cats.push('Flagship Smartphones', 'Premium Smartphones');
+    }
+  } else {
+    cats.push('Mid-Range Smartphones');
+  }
+
+  if (
+    seriesUpper.includes('T SERIES') ||
+    modelUpper.includes('PRO') ||
+    modelUpper.includes('ULTRA')
+  ) {
+    cats.push('Gaming Smartphones');
+  }
+
+  if (
+    seriesUpper.includes('V SERIES') ||
+    seriesUpper.includes('X SERIES') ||
+    entry.brand === 'Xiaomi' ||
+    (entry.brand === 'Google Pixel' && entry.productType === 'smartphone')
+  ) {
+    cats.push('Camera Smartphones');
+  }
+
+  return Array.from(new Set(cats));
+}
+
+function mapPriceListEntryToSmartphoneProduct(
+  entry: PriceListProductEntry,
+  index: number,
+  total: number
+): SmartphoneProduct {
+  const numericMop = parseNumericPrice(entry.mopPrice);
+  const numericOldRp = parseNumericPrice(entry.oldRp);
+  const numericEffective = parseNumericPrice(entry.effectivePrice);
+  const { ramOptions, storageOptions } = extractRamAndStorageFromVariant(entry.variant);
 
   const variantCycle: SmartphoneProduct['visualVariant'][] = [
     'titanium-pro',
@@ -758,182 +732,295 @@ function createCatalogueSeedProducts(brands: BrandDirectoryEntry[]): SmartphoneP
     'all-rounder',
   ];
 
-  for (let bIdx = 0; bIdx < brands.length; bIdx++) {
-    const brand = brands[bIdx];
-    const sourceUrl = OFFICIAL_BRAND_SOURCE_URLS[brand.name] || 'https://www.gsmarena.com/';
+  const networkVal: SmartphoneProduct['network'] = entry.model.includes('5G')
+    ? '5G'
+    : entry.model.includes('4G') || entry.brand === 'Lava'
+      ? '4G'
+      : 'Details available on enquiry';
 
-    for (let sIdx = 0; sIdx < brand.seriesList.length; sIdx++) {
-      const seriesName = brand.seriesList[sIdx];
-      const lookupKey = `${brand.name}::${seriesName}`;
-      const verifiedModelsInSeries = VERIFIED_BRAND_SERIES_MODELS_MAP[lookupKey] || [];
+  const summaryParts = [
+    entry.series,
+    entry.variant ? `Variant: ${entry.variant}` : '',
+    entry.colors.length > 0 ? `Colours: ${entry.colors.join(', ')}` : '',
+    entry.dealerPrice ? `DP: ${entry.dealerPrice}` : '',
+    entry.effectivePrice ? `Effective: ${entry.effectivePrice}` : '',
+    entry.oldRp ? `Old RP: ${entry.oldRp}` : '',
+  ].filter(Boolean);
 
-      const isFlagship =
-        seriesName.includes('Pro') ||
-        seriesName.includes('S Series') ||
-        seriesName.includes('Z Series') ||
-        seriesName.includes('Find') ||
-        seriesName.includes('X Series') ||
-        seriesName.includes('Ultra') ||
-        seriesName.includes('ROG') ||
-        seriesName.includes('Flagship') ||
-        seriesName.includes('Magic');
+  const isFeatured =
+    index === 0 ||
+    entry.model === 'V80' ||
+    entry.model === 'X300 ULTRA' ||
+    entry.model === 'Redmi Note 17 Pro Max 5G' ||
+    entry.model === 'Xiaomi 17 Ultra' ||
+    entry.model === 'Phone 4a Pro' ||
+    entry.model === 'Pixel 11 Pro XL (256 GB)' ||
+    entry.model === 'Lava Action 4G';
 
-      const isGaming =
-        brand.name === 'iQOO' ||
-        brand.name === 'ROG' ||
-        brand.name === 'POCO' ||
-        seriesName.includes('GT') ||
-        seriesName.includes('Gaming') ||
-        seriesName.includes('Neo');
+  return {
+    id: entry.id,
+    productName:
+      entry.variant && entry.variant !== 'Standard'
+        ? `${entry.model} (${entry.variant})`
+        : entry.model,
+    brand: entry.brand,
+    series: entry.series,
+    model: entry.model,
+    modelName: entry.model,
+    variant: entry.variant,
+    colors: [...entry.colors],
+    colorOptions: [...entry.colors],
+    mopPrice: entry.mopPrice,
+    dealerPrice: entry.dealerPrice,
+    effectivePrice: entry.effectivePrice,
+    oldRp: entry.oldRp,
+    newRp: entry.newRp,
+    discountFullSwipe: entry.discountFullSwipe,
+    discountEmi: entry.discountEmi,
+    offerPeriod: entry.offerPeriod,
+    notes: entry.notes,
+    source: entry.source,
+    sourceImage: undefined,
+    lastUpdated: entry.lastUpdated,
+    productType: entry.productType,
+    generation: 'Current Model',
+    image: resolveVerifiedProductImages(entry)?.primaryImage,
+    productImage: resolveVerifiedProductImages(entry)?.primaryImage,
+    sourceUrl: OFFICIAL_BRAND_SOURCE_URLS[entry.brand] || undefined,
+    galleryImages: resolveVerifiedProductImages(entry)?.galleryImages || {},
+    colorImages: resolveVerifiedProductImages(entry)?.colorImages || {},
+    visualVariant: variantCycle[index % variantCycle.length],
+    keySpecSummary: summaryParts.join(' · '),
+    specifications: {
+      display: 'Details available on enquiry',
+      processor: 'Details available on enquiry',
+      rearCamera: 'Details available on enquiry',
+      frontCamera: 'Details available on enquiry',
+      battery: 'Details available on enquiry',
+      charging: 'Details available on enquiry',
+      network: networkVal,
+      os: entry.brand === 'Lava' ? 'Feature OS' : 'Android',
+    },
+    display: 'Details available on enquiry',
+    processor: 'Details available on enquiry',
+    variants: entry.variant ? [entry.variant] : [],
+    ramOptions,
+    ramVariants: ramOptions,
+    storageOptions,
+    storageVariants: storageOptions,
+    rearCamera: 'Details available on enquiry',
+    frontCamera: 'Details available on enquiry',
+    battery: 'Details available on enquiry',
+    charging: 'Details available on enquiry',
+    os: entry.brand === 'Lava' ? 'Feature OS' : 'Android',
+    network: networkVal,
+    screenSizeCategory: entry.model.toLowerCase().includes('fold')
+      ? 'Foldable'
+      : 'Details available on enquiry',
+    cameraCategory: 'Details available on enquiry',
+    batteryCategory: 'Details available on enquiry',
+    launchInfo: `Last Updated: ${entry.lastUpdated}`,
+    verifiedRating: null,
+    verifiedReviewCount: null,
+    price: numericMop,
+    originalPrice: numericOldRp,
+    offerPrice: numericEffective ?? numericMop,
+    availability: 'Check Availability',
+    productStatus: isFeatured ? 'Featured' : 'Latest',
+    categories: deriveCategoriesFromPriceListEntry(entry, numericMop),
+    createdAtOrder: total - index,
+    popularityOrder: index + 1,
+  };
+}
 
-      const isCamera =
-        brand.name === 'OPPO' ||
-        brand.name === 'vivo' ||
-        brand.name === 'Google Pixel' ||
-        brand.name === 'Apple' ||
-        brand.name === 'Samsung' ||
-        seriesName.includes('Reno') ||
-        seriesName.includes('Camon');
+function createCatalogueSeedProducts(brands: BrandDirectoryEntry[]): SmartphoneProduct[] {
+  const brandSet = new Set(brands.map((b) => b.name.toLowerCase()));
+  const matchingEntries = CENTRALIZED_PRICE_LIST_DATA.filter((entry) =>
+    brandSet.has(entry.brand.toLowerCase())
+  );
 
-      const isBudget =
-        seriesName.includes('A Series') ||
-        seriesName.includes('C Series') ||
-        seriesName.includes('M Series') ||
-        seriesName.includes('F Series') ||
-        seriesName.includes('Spark') ||
-        seriesName.includes('Hot') ||
-        seriesName.includes('Smart') ||
-        seriesName.includes('Yuva') ||
-        seriesName.includes('Keypad') ||
-        seriesName.includes('Feature');
+  const products = matchingEntries.map((entry, idx) =>
+    mapPriceListEntryToSmartphoneProduct(entry, idx, matchingEntries.length)
+  );
 
-      const baseCategories: Exclude<MobileCategorySlug, 'All Smartphones'>[] = ['5G Smartphones'];
-      if (isFlagship) {
-        baseCategories.push('Flagship Smartphones', 'Premium Smartphones');
-      } else if (isBudget) {
-        baseCategories.push('Budget Smartphones');
-      } else {
-        baseCategories.push('Mid-Range Smartphones');
-      }
-      if (isGaming) baseCategories.push('Gaming Smartphones');
-      if (isCamera) baseCategories.push('Camera Smartphones');
-
-      const osVal = brand.name === 'Apple' ? 'iOS' : 'Android';
-
-      // If a newly added custom brand/series has no verified seed models yet, create a placeholder series entry without an unverified image
-      const modelsToBuild =
-        verifiedModelsInSeries.length > 0
-          ? verifiedModelsInSeries
-          : [
-              {
-                model: `${brand.name} ${seriesName}`,
-                modelNumber: undefined,
-                generation: 'Current Model' as const,
-                image: undefined,
-                ram: ['8GB', '12GB'],
-                storage: ['128GB', '256GB'],
-                colors: ['Details available on enquiry'],
-                network: '5G / 4G' as const,
-                keySpec: `${seriesName} · Official Series`,
-              },
-            ];
-
-      for (let mIdx = 0; mIdx < modelsToBuild.length; mIdx++) {
-        const seed = modelsToBuild[mIdx];
-        const visualVariant = variantCycle[(bIdx + sIdx + mIdx) % variantCycle.length];
-        const networkVal: SmartphoneProduct['network'] =
-          seed.network ||
-          (seriesName.includes('Keypad') || seriesName.includes('Feature') ? '4G' : '5G / 4G');
-        const ramList = seed.ram?.length ? seed.ram : ['Details available on enquiry'];
-        const storageList = seed.storage?.length ? seed.storage : ['Details available on enquiry'];
-        const colorList = seed.colors?.length ? seed.colors : ['Details available on enquiry'];
-        const exactRefImage = seed.image?.trim() || undefined;
-        const combinedVariants = ramList.flatMap((r) =>
-          storageList
-            .filter((s) => !s.includes('Details'))
-            .map((s) => (r.includes('Details') ? s : `${r} / ${s}`))
-        );
-
-        const productStatus: SmartphoneProduct['productStatus'] =
-          mIdx === 0 && sIdx === 0 && brand.featured
-            ? 'Featured'
-            : mIdx === 0 && seed.generation === 'Current Model' && brand.featured
-              ? 'Latest'
-              : 'Catalogue';
-
-        products.push({
-          id: `${brand.id}-s${sIdx}-m${mIdx}`,
-          productName: seed.model,
-          brand: brand.name,
-          model: seed.model,
-          modelName: seed.model,
-          modelNumber: seed.modelNumber,
-          series: seriesName,
-          generation: seed.generation,
-          image: exactRefImage,
-          productImage: exactRefImage,
-          sourceUrl,
-          galleryImages: exactRefImage ? { front: exactRefImage } : {},
-          visualVariant,
-          keySpecSummary:
-            seed.keySpec ||
-            `${seriesName} · ${ramList.filter((r) => !r.includes('Details')).join('/')} · ${storageList.filter((s) => !s.includes('Details')).join('/')} · ${networkVal}`,
-          specifications: {
-            display: seed.keySpec || 'Details available on enquiry',
-            processor: seed.keySpec || 'Details available on enquiry',
-            rearCamera: 'Details available on enquiry',
-            frontCamera: 'Details available on enquiry',
-            battery: 'Details available on enquiry',
-            charging: 'Details available on enquiry',
-            network: networkVal,
-            os: osVal,
-          },
-          display: seed.keySpec || 'Details available on enquiry',
-          processor: seed.keySpec || 'Details available on enquiry',
-          variants: combinedVariants.length ? combinedVariants : storageList,
-          ramOptions: ramList,
-          ramVariants: ramList,
-          storageOptions: storageList,
-          storageVariants: storageList,
+  // Support custom brands added via Admin that are not in CENTRALIZED_PRICE_LIST_DATA
+  for (const brand of brands) {
+    const hasPriceListItems = products.some(
+      (p) => p.brand.toLowerCase() === brand.name.toLowerCase()
+    );
+    if (!hasPriceListItems) {
+      const firstSeries = brand.seriesList[0] || `${brand.name} Series`;
+      products.push({
+        id: `${brand.id}-custom-0`,
+        productName: `${brand.name} ${firstSeries}`,
+        brand: brand.name,
+        series: firstSeries,
+        model: `${brand.name} ${firstSeries}`,
+        modelName: `${brand.name} ${firstSeries}`,
+        variant: 'Standard',
+        colors: [],
+        colorOptions: [],
+        mopPrice: 'Check Price',
+        dealerPrice: '',
+        effectivePrice: '',
+        source: 'Store Admin Entry',
+        lastUpdated: 'Oct 2026',
+        productType: 'smartphone',
+        generation: 'Current Model',
+        visualVariant: 'titanium-pro',
+        keySpecSummary: `${firstSeries} · Store Admin Entry`,
+        specifications: {
+          display: 'Details available on enquiry',
+          processor: 'Details available on enquiry',
           rearCamera: 'Details available on enquiry',
           frontCamera: 'Details available on enquiry',
           battery: 'Details available on enquiry',
           charging: 'Details available on enquiry',
-          os: osVal,
-          network: networkVal,
-          screenSizeCategory:
-            seriesName.includes('Fold') ||
-            seriesName.includes('Z Series') ||
-            seriesName.includes('Razr') ||
-            seed.model.includes('Fold') ||
-            seed.model.includes('Flip')
-              ? 'Foldable'
-              : isFlagship
-                ? 'Large 6.7"+'
-                : 'Standard 6.5"+',
-          cameraCategory: isCamera || isFlagship ? 'Pro Camera System' : 'Multi-Camera Setup',
-          batteryCategory: isGaming || isBudget ? 'High-Capacity Battery' : 'All-Day Battery',
-          colorOptions: colorList,
-          colors: colorList,
-          launchInfo: seed.generation === 'Current Model' ? 'Current Lineup' : 'Previous Generation',
-          verifiedRating: null,
-          verifiedReviewCount: null,
-          price: null,
-          originalPrice: null,
-          offerPrice: null,
-          availability: 'Check Availability',
-          productStatus,
-          categories: baseCategories,
-          createdAtOrder: 1000 - orderCounter,
-          popularityOrder: bIdx * 100 + sIdx * 15 + mIdx,
-        });
-
-        orderCounter++;
-      }
+          network: 'Details available on enquiry',
+          os: 'Android',
+        },
+        display: 'Details available on enquiry',
+        processor: 'Details available on enquiry',
+        variants: ['Standard'],
+        ramOptions: ['Standard'],
+        ramVariants: ['Standard'],
+        storageOptions: ['Standard'],
+        storageVariants: ['Standard'],
+        rearCamera: 'Details available on enquiry',
+        frontCamera: 'Details available on enquiry',
+        battery: 'Details available on enquiry',
+        charging: 'Details available on enquiry',
+        os: 'Android',
+        network: 'Details available on enquiry',
+        launchInfo: 'Store Admin Entry',
+        verifiedRating: null,
+        verifiedReviewCount: null,
+        price: null,
+        originalPrice: null,
+        offerPrice: null,
+        availability: 'Check Availability',
+        productStatus: 'Catalogue',
+        categories: ['Mid-Range Smartphones'],
+        createdAtOrder: 1,
+        popularityOrder: products.length + 1,
+      });
     }
   }
 
   return products;
+}
+
+export function parseKeySpecParts(keySpec?: string): {
+  display: string;
+  processor: string;
+  rearCamera: string;
+  frontCamera: string;
+  battery: string;
+  charging: string;
+} {
+  if (!keySpec || !keySpec.trim()) {
+    return {
+      display: 'Details available on enquiry',
+      processor: 'Details available on enquiry',
+      rearCamera: 'Details available on enquiry',
+      frontCamera: 'Details available on enquiry',
+      battery: 'Details available on enquiry',
+      charging: 'Details available on enquiry',
+    };
+  }
+  const parts = keySpec
+    .split('·')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  return {
+    display: parts[0] || keySpec,
+    processor: parts[1] || parts[0] || 'Details available on enquiry',
+    rearCamera: parts[2] || 'Details available on enquiry',
+    frontCamera: 'Details available on enquiry',
+    battery: parts[3] || 'Details available on enquiry',
+    charging: parts[4] || 'Details available on enquiry',
+  };
+}
+
+export function auditSmartphoneCatalogue(
+  brands: BrandDirectoryEntry[] = INITIAL_BRAND_DIRECTORY,
+  catalogue: SmartphoneProduct[] = INITIAL_SMARTPHONE_CATALOGUE
+): CatalogueAuditReport {
+  const modelCountByBrand: Record<string, number> = {};
+  const seriesCountByBrand: Record<string, number> = {};
+  const brandsWithIncompleteData: string[] = [];
+  const seriesWithIncompleteData: string[] = [];
+  const modelsWithoutVerifiedImages: Array<{
+    brand: string;
+    series: string;
+    modelName: string;
+  }> = [];
+
+  let totalVerifiedBrands = 0;
+  let totalVerifiedSeries = 0;
+
+  for (const brand of brands) {
+    const brandModels = catalogue.filter(
+      (m) => m.brand.toLowerCase() === brand.name.toLowerCase()
+    );
+    modelCountByBrand[brand.name] = brandModels.length;
+
+    const seriesDirectory = getSeriesDirectoryForBrand(brand.name, brands, catalogue);
+    const verifiedSeriesForBrand = seriesDirectory.filter((s) => s.modelCount > 0);
+    seriesCountByBrand[brand.name] = verifiedSeriesForBrand.length;
+    totalVerifiedSeries += verifiedSeriesForBrand.length;
+
+    let brandIncomplete = brand.seriesList.length === 0 || brandModels.length === 0;
+
+    for (const s of seriesDirectory) {
+      const modelsInSeries = brandModels.filter(
+        (m) => m.series.toLowerCase() === s.seriesName.toLowerCase()
+      );
+      const hasMissingFields = modelsInSeries.some(
+        (m) =>
+          !m.brand ||
+          !m.series ||
+          !m.modelName ||
+          !m.variant ||
+          !m.mopPrice ||
+          !m.source ||
+          !m.lastUpdated
+      );
+      if (s.modelCount === 0 || hasMissingFields) {
+        seriesWithIncompleteData.push(`${brand.name} :: ${s.seriesName}`);
+        brandIncomplete = true;
+      }
+    }
+
+    if (brandIncomplete) {
+      brandsWithIncompleteData.push(brand.name);
+    } else {
+      totalVerifiedBrands++;
+    }
+  }
+
+  for (const m of catalogue) {
+    const img = (m.productImage || m.image || m.sourceImage || '').trim();
+    if (!img) {
+      modelsWithoutVerifiedImages.push({
+        brand: m.brand,
+        series: m.series,
+        modelName: m.modelName,
+      });
+    }
+  }
+
+  return {
+    totalVerifiedBrands,
+    totalVerifiedSeries,
+    totalVerifiedModels: catalogue.length,
+    brandsWithIncompleteData,
+    seriesWithIncompleteData,
+    modelsWithoutVerifiedImages,
+    modelCountByBrand,
+    seriesCountByBrand,
+  };
 }
 
 export const INITIAL_SMARTPHONE_CATALOGUE: SmartphoneProduct[] =
@@ -1367,6 +1454,26 @@ export function buildWhatsAppUrl(customMessage?: string): string {
   return `https://wa.me/${STORE_INFO.whatsappNumber}?text=${encodeURIComponent(cleanMessage)}`;
 }
 
+export function buildPriceListWhatsAppMessage(params: {
+  brand: string;
+  model: string;
+  variant: string;
+  price: string;
+}): string {
+  const brand = params.brand.trim() || 'Needs verification';
+  const model = params.model.trim() || 'Needs verification';
+  const variant = params.variant.trim() || 'Standard';
+  const price = params.price.trim() || 'Check Price';
+
+  return `Hi Friends Cell Point, I am interested in:
+Brand: ${brand}
+Model: ${model}
+Variant: ${variant}
+Price: ${price}
+
+Please confirm availability.`;
+}
+
 export function buildProductEnquiryWhatsAppMessage(
   productName: string,
   variantNote?: string
@@ -1528,18 +1635,38 @@ export function filterAndSortSmartphoneCatalogue(
       return false;
     }
     if (filters.priceRange !== 'All') {
-      const targetCat = `${filters.priceRange} Smartphones` as Exclude<
-        MobileCategorySlug,
-        'All Smartphones'
-      >;
-      if (!item.categories.includes(targetCat)) {
-        return false;
+      const numericPrice = item.price ?? parseNumericPrice(item.mopPrice);
+      switch (filters.priceRange) {
+        case 'Under ₹10,000':
+          if (numericPrice === null || numericPrice >= 10000) return false;
+          break;
+        case '₹10,000 - ₹20,000':
+          if (numericPrice === null || numericPrice < 10000 || numericPrice > 20000) return false;
+          break;
+        case '₹20,000 - ₹35,000':
+          if (numericPrice === null || numericPrice < 20000 || numericPrice > 35000) return false;
+          break;
+        case '₹35,000 - ₹60,000':
+          if (numericPrice === null || numericPrice < 35000 || numericPrice > 60000) return false;
+          break;
+        case 'Above ₹60,000':
+          if (numericPrice === null || numericPrice <= 60000) return false;
+          break;
+        default: {
+          const targetCat = `${filters.priceRange} Smartphones` as Exclude<
+            MobileCategorySlug,
+            'All Smartphones'
+          >;
+          if (!item.categories.includes(targetCat)) {
+            return false;
+          }
+        }
       }
     }
-    if (filters.network5G === '5G' && !item.network.includes('5G')) {
+    if (filters.network5G === '5G' && !item.network.includes('5G') && !item.modelName.includes('5G')) {
       return false;
     }
-    if (filters.network5G === '4G' && !item.network.includes('4G')) {
+    if (filters.network5G === '4G' && !item.network.includes('4G') && !item.modelName.includes('4G') && item.brand !== 'Lava') {
       return false;
     }
     if (filters.os !== 'All') {
@@ -1548,14 +1675,22 @@ export function filterAndSortSmartphoneCatalogue(
       }
     }
     if (filters.ram !== 'All') {
-      const ramJoined = item.ramOptions.join(' ').toLowerCase();
-      if (!ramJoined.includes(filters.ram.toLowerCase())) {
+      const ramJoined = `${item.variant || ''} ${item.ramOptions.join(' ')}`.toLowerCase();
+      const ramToken = filters.ram.toLowerCase().replace('gb', '');
+      if (
+        !ramJoined.includes(filters.ram.toLowerCase()) &&
+        !new RegExp(`\\b${ramToken}\\s*(gb|\\+)`, 'i').test(ramJoined)
+      ) {
         return false;
       }
     }
     if (filters.storage !== 'All') {
-      const storageJoined = item.storageOptions.join(' ').toLowerCase();
-      if (!storageJoined.includes(filters.storage.toLowerCase())) {
+      const storageJoined = `${item.variant || ''} ${item.storageOptions.join(' ')}`.toLowerCase();
+      const storageToken = filters.storage.toLowerCase().replace('gb', '');
+      if (
+        !storageJoined.includes(filters.storage.toLowerCase()) &&
+        !new RegExp(`(\\+|\\b)${storageToken}\\s*(gb|\\b)`, 'i').test(storageJoined)
+      ) {
         return false;
       }
     }
@@ -1583,15 +1718,18 @@ export function filterAndSortSmartphoneCatalogue(
     const searchableBlob = [
       item.brand,
       item.modelName,
+      item.model,
+      item.variant || '',
+      item.mopPrice || '',
+      item.dealerPrice || '',
+      item.effectivePrice || '',
+      item.colors.join(' '),
       item.modelNumber || '',
       item.series,
       item.generation || '',
-      item.display,
-      item.processor,
       item.ramOptions.join(' '),
       item.storageOptions.join(' '),
       item.network,
-      item.os,
       item.categories.join(' '),
       item.keySpecSummary || '',
     ]
@@ -1609,13 +1747,13 @@ export function filterAndSortSmartphoneCatalogue(
       case 'newest':
         return b.createdAtOrder - a.createdAtOrder;
       case 'price-asc': {
-        const pa = a.offerPrice ?? a.price ?? Number.MAX_SAFE_INTEGER;
-        const pb = b.offerPrice ?? b.price ?? Number.MAX_SAFE_INTEGER;
+        const pa = a.price ?? parseNumericPrice(a.mopPrice) ?? Number.MAX_SAFE_INTEGER;
+        const pb = b.price ?? parseNumericPrice(b.mopPrice) ?? Number.MAX_SAFE_INTEGER;
         return pa - pb || a.popularityOrder - b.popularityOrder;
       }
       case 'price-desc': {
-        const pa = a.offerPrice ?? a.price ?? -1;
-        const pb = b.offerPrice ?? b.price ?? -1;
+        const pa = a.price ?? parseNumericPrice(a.mopPrice) ?? -1;
+        const pb = b.price ?? parseNumericPrice(b.mopPrice) ?? -1;
         return pb - pa || a.popularityOrder - b.popularityOrder;
       }
       case 'popular':
@@ -1634,13 +1772,13 @@ export function getInstantSearchSuggestions(
   const q = query.trim().toLowerCase();
   if (!q) {
     return [
-      { id: 'sug-iphone', type: 'model', label: 'iPhone', sublabel: 'Apple iPhone Flagships & Series', queryValue: 'iPhone', brandName: 'Apple' },
-      { id: 'sug-galaxy-s', type: 'series', label: 'Galaxy S', sublabel: 'Samsung Flagship Series', queryValue: 'Galaxy S', brandName: 'Samsung' },
-      { id: 'sug-oneplus', type: 'brand', label: 'OnePlus', sublabel: 'Flagship & Nord Smartphones', queryValue: 'OnePlus', brandName: 'OnePlus' },
-      { id: 'sug-redmi', type: 'brand', label: 'Redmi', sublabel: 'Redmi Note & 5G Series', queryValue: 'Redmi', brandName: 'Redmi' },
+      { id: 'sug-vivo', type: 'brand', label: 'vivo', sublabel: 'Y, S, V, T & X Series Smartphones', queryValue: 'vivo', brandName: 'vivo' },
+      { id: 'sug-redmi', type: 'brand', label: 'Redmi', sublabel: 'Redmi A, Number, C & Note Series', queryValue: 'Redmi', brandName: 'Redmi' },
+      { id: 'sug-xiaomi', type: 'brand', label: 'Xiaomi', sublabel: 'Xiaomi 17, 17T & 17 Ultra', queryValue: 'Xiaomi', brandName: 'Xiaomi' },
+      { id: 'sug-nothing', type: 'brand', label: 'Nothing', sublabel: 'Phone 3a Lite, 4b, 4a & 4a Pro', queryValue: 'Nothing', brandName: 'Nothing' },
+      { id: 'sug-lava', type: 'brand', label: 'Lava', sublabel: 'Feature & Keypad Series', queryValue: 'Lava', brandName: 'Lava' },
+      { id: 'sug-pixel', type: 'brand', label: 'Google Pixel', sublabel: 'Pixel 10, Pixel 11, Watch 5 & Fitbit', queryValue: 'Google Pixel', brandName: 'Google Pixel' },
       { id: 'sug-tws', type: 'accessory', label: 'TWS / Buds', sublabel: 'Accessory · True Wireless Earbuds', queryValue: 'TWS', accessoryCategory: 'TWS / Buds' },
-      { id: 'sug-tempered', type: 'accessory', label: 'Tempered Glass', sublabel: 'Accessory · 9H Screen Protection', queryValue: 'Tempered Glass', accessoryCategory: 'Tempered Glass' },
-      { id: 'sug-charger', type: 'accessory', label: 'Fast Chargers', sublabel: 'Accessory · USB-C PD & Wall Adapters', queryValue: 'Chargers', accessoryCategory: 'Fast Chargers' },
     ];
   }
 
@@ -1649,8 +1787,7 @@ export function getInstantSearchSuggestions(
   for (const b of brands) {
     if (
       b.name.toLowerCase().includes(q) ||
-      b.originNote.toLowerCase().includes(q) ||
-      (q.includes('iphone') && b.name === 'Apple')
+      b.originNote.toLowerCase().includes(q)
     ) {
       results.push({
         id: `brand-${b.id}`,
@@ -1660,6 +1797,24 @@ export function getInstantSearchSuggestions(
         queryValue: b.name,
         brandName: b.name,
       });
+    }
+
+    for (const sName of b.seriesList) {
+      const fullSeriesLabel = `${b.name} ${sName}`;
+      if (
+        sName.toLowerCase().includes(q) ||
+        fullSeriesLabel.toLowerCase().includes(q)
+      ) {
+        results.push({
+          id: `series-${b.id}-${sName}`,
+          type: 'series',
+          label: fullSeriesLabel,
+          sublabel: `Series · ${b.name} Smartphones`,
+          queryValue: fullSeriesLabel,
+          brandName: b.name,
+          seriesName: sName,
+        });
+      }
     }
   }
 
@@ -1680,14 +1835,14 @@ export function getInstantSearchSuggestions(
     }
   }
 
-  const specQuickTokens = ['256GB', '128GB', '512GB', '12GB', '8GB', '16GB', '5G'];
+  const specQuickTokens = ['8GB + 256GB', '12GB + 256GB', '8+256', '12+512', '256GB', '128GB', '512GB', '5G'];
   for (const specToken of specQuickTokens) {
     if (specToken.toLowerCase().includes(q)) {
       results.push({
         id: `spec-${specToken}`,
         type: 'spec',
-        label: `${specToken} Smartphones`,
-        sublabel: `Filter by ${specToken} specification`,
+        label: `${specToken} Variant`,
+        sublabel: `Filter by ${specToken} variant`,
         queryValue: specToken,
       });
     }
@@ -1696,14 +1851,14 @@ export function getInstantSearchSuggestions(
   const normalizedQ = q.replace(/\bphones\b|\bmobiles\b/g, '').trim() || q;
   for (const prod of catalogue) {
     if (results.length >= limit) break;
-    const blob = `${prod.brand} ${prod.modelName} ${prod.modelNumber || ''} ${prod.series} ${prod.ramOptions.join(' ')} ${prod.storageOptions.join(' ')} ${prod.network}`.toLowerCase();
+    const blob = `${prod.brand} ${prod.modelName} ${prod.variant} ${prod.series} ${prod.colors.join(' ')} ${prod.mopPrice}`.toLowerCase();
     const tokens = normalizedQ.split(/\s+/).filter(Boolean);
     if (tokens.every((t) => blob.includes(t))) {
       results.push({
         id: `model-${prod.id}`,
         type: 'model',
-        label: prod.modelName,
-        sublabel: `${prod.brand} · ${prod.series}${prod.modelNumber ? ` · ${prod.modelNumber}` : ''} · ${prod.network}`,
+        label: `${prod.modelName} (${prod.variant})`,
+        sublabel: `${prod.brand} · ${prod.series} · MOP: ${prod.mopPrice}`,
         queryValue: prod.modelName,
         brandName: prod.brand,
         product: prod,
@@ -1820,7 +1975,7 @@ export function addBrandToDirectory(
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
-    : [`${cleanName} Flagship Series`, `${cleanName} 5G Series`, 'Other Models'];
+    : [`${cleanName} Series`];
 
   const seriesList = parsedSeries.length > 0 ? parsedSeries : ['All Models'];
   const monogram = cleanName.slice(0, 2).toUpperCase();
@@ -1828,7 +1983,7 @@ export function addBrandToDirectory(
     id: `brand-${cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
     name: cleanName,
     monogram,
-    originNote: input.originNote?.trim() || `${cleanName} Smartphones`,
+    originNote: input.originNote?.trim() || `${cleanName} Price List`,
     seriesList,
     featured: true,
   };
@@ -1861,6 +2016,12 @@ export function upsertSmartphoneModel(
     brand: string;
     modelName: string;
     series: string;
+    variant?: string;
+    mopPrice?: string;
+    dealerPrice?: string;
+    effectivePrice?: string;
+    source?: string;
+    lastUpdated?: string;
     productImage?: string;
     galleryImages?: ProductGalleryImages;
     display?: string;
@@ -1884,6 +2045,7 @@ export function upsertSmartphoneModel(
   const brand = input.brand.trim();
   const modelName = input.modelName.trim();
   const series = input.series.trim() || 'Other Models';
+  const variant = input.variant?.trim() || 'Standard';
 
   if (!brand) return { ok: false, error: 'Brand is required.' };
   if (!modelName) return { ok: false, error: 'Model Name is required.' };
@@ -1893,19 +2055,19 @@ export function upsertSmartphoneModel(
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
-    : ['Details available on enquiry'];
+    : [variant];
   const storageOptions = input.storageCsv
     ? input.storageCsv
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
-    : ['Details available on enquiry'];
+    : [variant];
   const colorOptions = input.colorsCsv
     ? input.colorsCsv
         .split(',')
         .map((s) => s.trim())
-        .filter(Boolean)
-    : ['Details available on enquiry'];
+        .filter((s) => Boolean(s) && !s.toLowerCase().includes('details available'))
+    : [];
 
   const cleanProductImage =
     input.productImage !== undefined
@@ -1935,14 +2097,34 @@ export function upsertSmartphoneModel(
     const updatedCharging = input.charging?.trim() || existing.charging;
     const updatedOs = input.os?.trim() || existing.os;
     const updatedNetwork = input.network || existing.network;
+    const updatedVariant = input.variant?.trim() || existing.variant;
+    const updatedPriceNum = input.price !== undefined ? input.price : existing.price;
+    const updatedMopStr =
+      input.mopPrice?.trim() ||
+      (updatedPriceNum !== null
+        ? `₹${updatedPriceNum.toLocaleString('en-IN')}`
+        : existing.mopPrice);
 
     const updatedItem: SmartphoneProduct = {
       ...existing,
-      productName: modelName,
+      productName:
+        updatedVariant && updatedVariant !== 'Standard'
+          ? `${modelName} (${updatedVariant})`
+          : modelName,
       brand,
       model: modelName,
       modelName,
       series,
+      variant: updatedVariant,
+      mopPrice: updatedMopStr,
+      dealerPrice:
+        input.dealerPrice !== undefined ? input.dealerPrice.trim() : existing.dealerPrice,
+      effectivePrice:
+        input.effectivePrice !== undefined
+          ? input.effectivePrice.trim()
+          : existing.effectivePrice,
+      source: input.source?.trim() || existing.source,
+      lastUpdated: input.lastUpdated?.trim() || existing.lastUpdated,
       productImage: finalPrimaryImage,
       galleryImages: mergedGallery,
       specifications: {
@@ -1967,9 +2149,9 @@ export function upsertSmartphoneModel(
       charging: updatedCharging,
       os: updatedOs,
       network: updatedNetwork,
-      colorOptions: colorOptions.length ? colorOptions : existing.colorOptions,
-      colors: colorOptions.length ? colorOptions : existing.colorOptions,
-      price: input.price !== undefined ? input.price : existing.price,
+      colorOptions: input.colorsCsv !== undefined ? colorOptions : existing.colorOptions,
+      colors: input.colorsCsv !== undefined ? colorOptions : existing.colors,
+      price: updatedPriceNum,
       originalPrice:
         input.originalPrice !== undefined ? input.originalPrice : existing.originalPrice,
       offerPrice: input.offerPrice !== undefined ? input.offerPrice : existing.offerPrice,
@@ -1989,22 +2171,35 @@ export function upsertSmartphoneModel(
   const frontCamVal = input.frontCamera?.trim() || 'Details available on enquiry';
   const batteryVal = input.battery?.trim() || 'Details available on enquiry';
   const chargingVal = input.charging?.trim() || 'Details available on enquiry';
-  const osVal = input.os?.trim() || (brand.toLowerCase() === 'apple' ? 'iOS' : 'Android');
-  const netVal = input.network || '5G / 4G';
+  const osVal = input.os?.trim() || (brand.toLowerCase() === 'lava' ? 'Feature OS' : 'Android');
+  const netVal = input.network || 'Details available on enquiry';
   const galleryVal: ProductGalleryImages = input.galleryImages || {};
   const primaryImage = cleanProductImage || galleryVal.front?.trim() || undefined;
+  const priceNum = input.price ?? parseNumericPrice(input.mopPrice);
+  const mopPriceStr =
+    input.mopPrice?.trim() ||
+    (priceNum !== null ? `₹${priceNum.toLocaleString('en-IN')}` : 'Check Price');
 
   const newItem: SmartphoneProduct = {
     id: `model-${brand.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
-    productName: modelName,
+    productName: variant !== 'Standard' ? `${modelName} (${variant})` : modelName,
     brand,
     model: modelName,
     modelName,
     series,
+    variant,
+    colors: colorOptions,
+    colorOptions,
+    mopPrice: mopPriceStr,
+    dealerPrice: input.dealerPrice?.trim() || '',
+    effectivePrice: input.effectivePrice?.trim() || '',
+    source: input.source?.trim() || 'Friends Cell Point Price List',
+    lastUpdated: input.lastUpdated?.trim() || 'Oct 2026',
+    productType: 'smartphone',
     productImage: primaryImage,
     galleryImages: galleryVal,
     visualVariant: 'titanium-pro',
-    keySpecSummary: `${series} · ${netVal}`,
+    keySpecSummary: `${series} · Variant: ${variant}`,
     specifications: {
       display: displayVal,
       processor: processorVal,
@@ -2017,6 +2212,7 @@ export function upsertSmartphoneModel(
     },
     display: displayVal,
     processor: processorVal,
+    variants: [variant],
     ramOptions,
     ramVariants: ramOptions,
     storageOptions,
@@ -2027,20 +2223,18 @@ export function upsertSmartphoneModel(
     charging: chargingVal,
     os: osVal,
     network: netVal,
-    screenSizeCategory: 'Standard 6.5"+',
-    cameraCategory: 'Multi-Camera Setup',
-    batteryCategory: 'All-Day Battery',
-    colorOptions,
-    colors: colorOptions,
-    launchInfo: 'Details available on enquiry',
+    screenSizeCategory: 'Details available on enquiry',
+    cameraCategory: 'Details available on enquiry',
+    batteryCategory: 'Details available on enquiry',
+    launchInfo: `Last Updated: ${input.lastUpdated?.trim() || 'Oct 2026'}`,
     verifiedRating: null,
     verifiedReviewCount: null,
-    price: input.price ?? null,
+    price: priceNum,
     originalPrice: input.originalPrice ?? null,
-    offerPrice: input.offerPrice ?? null,
+    offerPrice: input.offerPrice ?? priceNum,
     availability: input.availability || 'Check Availability',
     productStatus: input.productStatus || 'Latest',
-    categories: ['5G Smartphones', 'Mid-Range Smartphones'],
+    categories: ['Mid-Range Smartphones'],
     createdAtOrder: catalogue.length + 100,
     popularityOrder: 1,
   };
@@ -2120,15 +2314,13 @@ export function exportSmartphonesToCsv(catalogue: SmartphoneProduct[]): string {
     'brand',
     'series',
     'model',
-    'modelNumber',
-    'generation',
-    'image',
-    'sourceUrl',
-    'ram',
-    'storage',
+    'variant',
     'colors',
-    'network',
-    'price',
+    'mopPrice',
+    'dealerPrice',
+    'effectivePrice',
+    'source',
+    'lastUpdated',
     'availability',
   ];
 
@@ -2146,15 +2338,13 @@ export function exportSmartphonesToCsv(catalogue: SmartphoneProduct[]): string {
       p.brand,
       p.series,
       p.modelName || p.model,
-      p.modelNumber || '',
-      p.generation || 'Current Model',
-      p.productImage || p.image || '',
-      p.sourceUrl || '',
-      p.ramOptions.join(' | '),
-      p.storageOptions.join(' | '),
-      p.colorOptions.join(' | '),
-      p.network,
-      p.price ?? '',
+      p.variant || 'Standard',
+      p.colors.join(' | '),
+      p.mopPrice || (p.price ? `₹${p.price.toLocaleString('en-IN')}` : ''),
+      p.dealerPrice || '',
+      p.effectivePrice || '',
+      p.source || '',
+      p.lastUpdated || '',
       p.availability,
     ]
       .map(escapeCsvCell)
@@ -2247,17 +2437,15 @@ export function importSmartphonesFromCsvOrJson(
     const brand = String(rec.brand || '').trim();
     const model = String(rec.modelName || rec.model || rec.productName || '').trim();
     const series = String(rec.series || 'Other Models').trim();
+    const variant = String(rec.variant || 'Standard').trim();
     if (!brand || !model) continue;
 
     const imageStr = String(rec.productImage || rec.image || '').trim() || undefined;
-    const modelNumber = String(rec.modelNumber || '').trim() || undefined;
-    const generationRaw = String(rec.generation || 'Current Model').trim();
-    const generation: 'Current Model' | 'Previous Model' =
-      generationRaw === 'Previous Model' ? 'Previous Model' : 'Current Model';
-    const sourceUrl =
-      String(rec.sourceUrl || '').trim() ||
-      OFFICIAL_BRAND_SOURCE_URLS[brand] ||
-      'https://www.gsmarena.com/';
+    const mopPriceRaw = String(rec.mopPrice || rec.price || '').trim();
+    const dealerPrice = String(rec.dealerPrice || '').trim();
+    const effectivePrice = String(rec.effectivePrice || '').trim();
+    const source = String(rec.source || 'Friends Cell Point Price List').trim();
+    const lastUpdated = String(rec.lastUpdated || 'Oct 2026').trim();
 
     const splitPipeOrComma = (v: unknown): string[] => {
       if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean);
@@ -2267,74 +2455,80 @@ export function importSmartphonesFromCsvOrJson(
           .map((x) => x.trim())
           .filter(Boolean);
       }
-      return ['Details available on enquiry'];
+      return [];
     };
 
-    const ramList = splitPipeOrComma(rec.ramOptions || rec.ram || rec.ramVariants);
-    const storageList = splitPipeOrComma(rec.storageOptions || rec.storage || rec.storageVariants);
-    const colorList = splitPipeOrComma(rec.colorOptions || rec.colors);
-    const priceNum =
-      rec.price !== undefined && rec.price !== null && String(rec.price).trim() !== ''
-        ? Number(rec.price)
-        : null;
+    const colorList = splitPipeOrComma(rec.colors || rec.colorOptions);
+    const { ramOptions, storageOptions } = extractRamAndStorageFromVariant(variant);
+    const numericPrice = parseNumericPrice(mopPriceRaw);
+    const formattedMop =
+      mopPriceRaw.startsWith('₹') || !numericPrice
+        ? mopPriceRaw || 'Check Price'
+        : `₹${numericPrice.toLocaleString('en-IN')}`;
 
     const idVal =
       String(rec.id || '').trim() ||
-      `imported-${brand.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${model.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      `imported-${brand.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${model.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${variant.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
     const newEntry: SmartphoneProduct = {
       id: idVal,
-      productName: model,
+      productName: variant !== 'Standard' ? `${model} (${variant})` : model,
       brand,
+      series,
       model,
       modelName: model,
-      modelNumber,
-      series,
-      generation,
+      variant,
+      colors: colorList,
+      colorOptions: colorList,
+      mopPrice: formattedMop,
+      dealerPrice,
+      effectivePrice,
+      source,
+      lastUpdated,
+      productType: 'smartphone',
+      generation: 'Current Model',
       image: imageStr,
       productImage: imageStr,
-      sourceUrl,
+      sourceUrl: OFFICIAL_BRAND_SOURCE_URLS[brand] || undefined,
       galleryImages: imageStr ? { front: imageStr } : {},
       visualVariant: 'titanium-pro',
-      keySpecSummary: `${series} · ${ramList.filter((r) => !r.includes('Details')).join('/')} · ${storageList.filter((s) => !s.includes('Details')).join('/')}`,
+      keySpecSummary: `${series} · Variant: ${variant}`,
       specifications: {
-        display: String((rec.specifications as Record<string, string>)?.display || rec.display || 'Details available on enquiry'),
-        processor: String((rec.specifications as Record<string, string>)?.processor || rec.processor || 'Details available on enquiry'),
-        rearCamera: String((rec.specifications as Record<string, string>)?.rearCamera || rec.rearCamera || 'Details available on enquiry'),
-        frontCamera: String((rec.specifications as Record<string, string>)?.frontCamera || rec.frontCamera || 'Details available on enquiry'),
-        battery: String((rec.specifications as Record<string, string>)?.battery || rec.battery || 'Details available on enquiry'),
-        charging: String((rec.specifications as Record<string, string>)?.charging || rec.charging || 'Details available on enquiry'),
-        network: '5G / 4G',
-        os: brand.toLowerCase() === 'apple' ? 'iOS' : 'Android',
+        display: 'Details available on enquiry',
+        processor: 'Details available on enquiry',
+        rearCamera: 'Details available on enquiry',
+        frontCamera: 'Details available on enquiry',
+        battery: 'Details available on enquiry',
+        charging: 'Details available on enquiry',
+        network: model.includes('5G') ? '5G' : 'Details available on enquiry',
+        os: brand.toLowerCase() === 'lava' ? 'Feature OS' : 'Android',
       },
-      display: String(rec.display || 'Details available on enquiry'),
-      processor: String(rec.processor || 'Details available on enquiry'),
-      variants: storageList,
-      ramOptions: ramList,
-      ramVariants: ramList,
-      storageOptions: storageList,
-      storageVariants: storageList,
-      rearCamera: String(rec.rearCamera || 'Details available on enquiry'),
-      frontCamera: String(rec.frontCamera || 'Details available on enquiry'),
-      battery: String(rec.battery || 'Details available on enquiry'),
-      charging: String(rec.charging || 'Details available on enquiry'),
-      os: brand.toLowerCase() === 'apple' ? 'iOS' : 'Android',
-      network: '5G / 4G',
-      screenSizeCategory: 'Standard 6.5"+',
-      cameraCategory: 'Multi-Camera Setup',
-      batteryCategory: 'All-Day Battery',
-      colorOptions: colorList,
-      colors: colorList,
-      launchInfo: generation === 'Current Model' ? 'Current Lineup' : 'Previous Generation',
+      display: 'Details available on enquiry',
+      processor: 'Details available on enquiry',
+      variants: [variant],
+      ramOptions: ramOptions.length ? ramOptions : [variant],
+      ramVariants: ramOptions.length ? ramOptions : [variant],
+      storageOptions: storageOptions.length ? storageOptions : [variant],
+      storageVariants: storageOptions.length ? storageOptions : [variant],
+      rearCamera: 'Details available on enquiry',
+      frontCamera: 'Details available on enquiry',
+      battery: 'Details available on enquiry',
+      charging: 'Details available on enquiry',
+      os: brand.toLowerCase() === 'lava' ? 'Feature OS' : 'Android',
+      network: model.includes('5G') ? '5G' : 'Details available on enquiry',
+      screenSizeCategory: 'Details available on enquiry',
+      cameraCategory: 'Details available on enquiry',
+      batteryCategory: 'Details available on enquiry',
+      launchInfo: `Last Updated: ${lastUpdated}`,
       verifiedRating: null,
       verifiedReviewCount: null,
-      price: Number.isFinite(priceNum) ? priceNum : null,
+      price: numericPrice,
       originalPrice: null,
-      offerPrice: null,
+      offerPrice: parseNumericPrice(effectivePrice) ?? numericPrice,
       availability:
         (rec.availability as InventoryStatus) || 'Check Availability',
       productStatus: 'Catalogue',
-      categories: ['5G Smartphones', 'Mid-Range Smartphones'],
+      categories: ['Mid-Range Smartphones'],
       createdAtOrder: updatedCatalogue.length + importedCount + 1,
       popularityOrder: importedCount + 1,
     };
@@ -2343,7 +2537,8 @@ export function importSmartphonesFromCsvOrJson(
       (p) =>
         p.id === newEntry.id ||
         (p.brand.toLowerCase() === brand.toLowerCase() &&
-          p.modelName.toLowerCase() === model.toLowerCase())
+          p.modelName.toLowerCase() === model.toLowerCase() &&
+          p.variant.toLowerCase() === variant.toLowerCase())
     );
     if (existingIdx >= 0) {
       updatedCatalogue[existingIdx] = newEntry;

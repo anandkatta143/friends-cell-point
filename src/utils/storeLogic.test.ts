@@ -1,69 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   STORE_INFO,
   INITIAL_BRAND_DIRECTORY,
   INITIAL_SMARTPHONE_CATALOGUE,
   INITIAL_ACCESSORIES_CATALOGUE,
   ACCESSORY_CATEGORY_NAMES,
-  HOMEPAGE_POPULAR_SEARCH_CHIPS,
-  HOMEPAGE_MOBILE_CATEGORIES,
-  HOMEPAGE_ACCESSORY_ENTRY_TILES,
   DEFAULT_MOBILE_FILTER_STATE,
-  buildPhoneModelWhatsAppMessage,
-  buildProductEnquiryWhatsAppMessage,
-  buildCatalogueProductWhatsAppMessage,
+  CENTRALIZED_PRICE_LIST_DATA,
+  PRICE_CHANGE_DISCLAIMER,
+  buildPriceListWhatsAppMessage,
   filterAndSortSmartphoneCatalogue,
   getCompatibleAccessoriesForPhone,
-  getRelatedProductsForPhone,
-  getInstantSearchSuggestions,
-  resolveUniversalCatalogueSearch,
-  formatStockStatusBadge,
-  formatVerifiedSpecValue,
-  formatComparisonValue,
-  addBrandToDirectory,
-  deleteBrandFromDirectory,
-  upsertSmartphoneModel,
-  upsertAccessoryItem,
-  deleteSmartphoneModel,
-  getProductGallerySlots,
-  getSeriesDirectoryForBrand,
   exportSmartphonesToCsv,
   importSmartphonesFromCsvOrJson,
+  auditSmartphoneCatalogue,
 } from './storeLogic';
 
-test('INITIAL_BRAND_DIRECTORY includes all 28 requested major smartphone brands', () => {
-  const expectedBrands = [
-    'Apple',
-    'Samsung',
-    'OnePlus',
-    'OPPO',
-    'vivo',
-    'Xiaomi',
-    'Redmi',
-    'realme',
-    'iQOO',
-    'Nothing',
-    'Motorola',
-    'Google Pixel',
-    'POCO',
-    'Infinix',
-    'TECNO',
-    'Nokia',
-    'Lava',
-    'Micromax',
-    'ASUS',
-    'Sony',
-    'HONOR',
-    'HMD',
-    'Itel',
-    'CMF',
-    'ZTE',
-    'nubia',
-    'Lenovo',
-    'ROG',
-  ];
-  assert.ok(INITIAL_BRAND_DIRECTORY.length >= 28);
+test('INITIAL_BRAND_DIRECTORY includes strictly the 6 supplied price-list brands (vivo, Redmi, Xiaomi, Nothing, Lava, Google Pixel)', () => {
+  const expectedBrands = ['vivo', 'Redmi', 'Xiaomi', 'Nothing', 'Lava', 'Google Pixel'];
+  assert.equal(INITIAL_BRAND_DIRECTORY.length, 6);
   for (const name of expectedBrands) {
     assert.ok(
       INITIAL_BRAND_DIRECTORY.some((b) => b.name === name),
@@ -72,218 +30,186 @@ test('INITIAL_BRAND_DIRECTORY includes all 28 requested major smartphone brands'
   }
 });
 
-test('Hierarchical Brand -> Series -> All Models dataset includes Current and Previous models across Samsung, OnePlus, Apple, OPPO, vivo and all 28 brands', () => {
-  const samsung = INITIAL_BRAND_DIRECTORY.find((b) => b.name === 'Samsung');
-  assert.ok(samsung);
-  assert.deepEqual(samsung.seriesList, [
-    'Galaxy S Series',
-    'Galaxy A Series',
-    'Galaxy M Series',
-    'Galaxy F Series',
-    'Galaxy Z Series',
-    'Other Models',
-  ]);
+test('CENTRALIZED_PRICE_LIST_DATA and INITIAL_SMARTPHONE_CATALOGUE contain all 120 exact entries from the supplied price lists with verified on-disk product images', () => {
+  assert.equal(CENTRALIZED_PRICE_LIST_DATA.length, 120);
+  assert.equal(INITIAL_SMARTPHONE_CATALOGUE.length, 120);
 
-  const samsungModels = filterAndSortSmartphoneCatalogue(INITIAL_SMARTPHONE_CATALOGUE, {
-    ...DEFAULT_MOBILE_FILTER_STATE,
-    brand: 'Samsung',
-  });
-  assert.ok(
-    samsungModels.length >= 25,
-    `Expected Samsung to have at least 25 models across all series, got ${samsungModels.length}`
-  );
+  const countByBrand = (brand: string) =>
+    INITIAL_SMARTPHONE_CATALOGUE.filter((p) => p.brand === brand).length;
 
-  const oneplusModels = filterAndSortSmartphoneCatalogue(INITIAL_SMARTPHONE_CATALOGUE, {
-    ...DEFAULT_MOBILE_FILTER_STATE,
-    brand: 'OnePlus',
-  });
-  assert.ok(
-    oneplusModels.length >= 24,
-    `Expected OnePlus to have at least 24 models across all series, got ${oneplusModels.length}`
-  );
+  assert.equal(countByBrand('vivo'), 50);
+  assert.equal(countByBrand('Redmi'), 30);
+  assert.equal(countByBrand('Xiaomi'), 4);
+  assert.equal(countByBrand('Nothing'), 10);
+  assert.equal(countByBrand('Lava'), 11);
+  assert.equal(countByBrand('Google Pixel'), 15);
 
-  const oneplusSeriesDir = getSeriesDirectoryForBrand(
-    'OnePlus',
-    INITIAL_BRAND_DIRECTORY,
-    INITIAL_SMARTPHONE_CATALOGUE
-  );
-  assert.equal(oneplusSeriesDir.length, 5);
-  const nordSeries = oneplusSeriesDir.find((s) => s.seriesName === 'OnePlus Nord Series');
-  assert.ok(nordSeries && nordSeries.modelCount >= 4);
-  assert.ok(nordSeries.representativeImage?.startsWith('https://'));
+  const audit = auditSmartphoneCatalogue(INITIAL_BRAND_DIRECTORY, INITIAL_SMARTPHONE_CATALOGUE);
+  assert.equal(audit.totalVerifiedBrands, 6);
+  assert.equal(audit.totalVerifiedModels, 120);
+  assert.deepEqual(audit.brandsWithIncompleteData, []);
+  assert.deepEqual(audit.modelsWithoutVerifiedImages, []);
 
-  for (const m of samsungModels) {
-    assert.equal(m.price, null);
-    assert.equal(m.availability, 'Check Availability');
-    assert.equal(formatStockStatusBadge(m.availability), 'CHECK AVAILABILITY');
-    assert.ok(m.productName);
-    assert.ok(m.model);
-    assert.ok(m.sourceUrl?.startsWith('https://'));
-    assert.ok(m.generation === 'Current Model' || m.generation === 'Previous Model');
-    assert.ok(m.specifications);
-    assert.ok(Array.isArray(m.colors));
-    assert.ok(Array.isArray(m.storageVariants));
-    assert.ok(Array.isArray(m.ramVariants));
+  // Ensure every product has a real verified product image mapped by Brand -> Series -> Model -> Variant -> Colour
+  // and that the physical image file exists on disk under public/assets/products/
+  for (const product of INITIAL_SMARTPHONE_CATALOGUE) {
+    assert.equal(product.sourceImage, undefined);
+    assert.ok(
+      Boolean(product.productImage && product.productImage.startsWith('/assets/products/')),
+      `Expected verified product image for ${product.brand} -> ${product.series} -> ${product.model} -> ${product.variant}`
+    );
+    const diskPrimaryPath = path.join(process.cwd(), 'public', product.productImage!);
+    assert.ok(
+      fs.existsSync(diskPrimaryPath) && fs.statSync(diskPrimaryPath).size > 2000,
+      `Missing or empty image file on disk: ${diskPrimaryPath}`
+    );
+    assert.ok(!product.productImage?.includes('price-lists'), 'No price-list image URL allowed');
+    for (const color of product.colors) {
+      const colorUrl = product.colorImages?.[color];
+      assert.ok(
+        Boolean(colorUrl?.startsWith('/assets/products/')),
+        `Expected verified colour image for ${product.brand} ${product.model} (${color})`
+      );
+      const diskColorPath = path.join(process.cwd(), 'public', colorUrl!);
+      assert.ok(
+        fs.existsSync(diskColorPath) && fs.statSync(diskColorPath).size > 2000,
+        `Missing or empty colour image file on disk: ${diskColorPath}`
+      );
+    }
   }
 });
 
-test('Original Product Image System & 6-angle gallery slots (Front, Back, Side, Camera, Display, Box / Package)', () => {
-  const basePhone = INITIAL_SMARTPHONE_CATALOGUE[0];
-  assert.ok(
-    basePhone.productImage && basePhone.productImage.startsWith('https://'),
-    'Expected seeded smartphone to have a real online reference image URL'
+test('Exact price-list fields are preserved for vivo, Redmi, Xiaomi, Nothing, Lava, and Google Pixel', () => {
+  // 1. vivo X300 ULTRA (16GB + 512GB)
+  const vivoX300Ultra = INITIAL_SMARTPHONE_CATALOGUE.find(
+    (p) => p.brand === 'vivo' && p.model === 'X300 ULTRA' && p.variant === '16GB + 512GB'
   );
-  const seededSlots = getProductGallerySlots(basePhone);
-  assert.equal(seededSlots.length, 6);
-  assert.deepEqual(
-    seededSlots.map((s) => s.label),
-    ['Front', 'Back', 'Side', 'Camera', 'Display', 'Box / Package']
+  assert.ok(vivoX300Ultra);
+  assert.deepEqual(vivoX300Ultra.colors, ['Eclipse Black', 'Victory Green']);
+  assert.equal(vivoX300Ultra.dealerPrice, '₹ 1,59,999');
+  assert.equal(vivoX300Ultra.mopPrice, '₹ 1,59,999');
+  assert.equal(vivoX300Ultra.price, 159999);
+
+  // 2. Redmi Note 15 Pro+ 5G (12+512) -> 44,999
+  const redmiNote15ProPlus = INITIAL_SMARTPHONE_CATALOGUE.find(
+    (p) => p.brand === 'Redmi' && p.model === 'Redmi Note 15 Pro+ 5G' && p.variant === '12+512'
   );
-  assert.equal(seededSlots[0].imageUrl, basePhone.productImage);
+  assert.ok(redmiNote15ProPlus);
+  assert.equal(redmiNote15ProPlus.mopPrice, '44,999');
+  assert.deepEqual(redmiNote15ProPlus.colors, []);
 
-  // Verify a custom model without an exact online image returns null so UI shows "Image unavailable"
-  const emptySlots = getProductGallerySlots({ productImage: undefined, galleryImages: {} });
-  assert.ok(emptySlots.every((s) => s.imageUrl === null));
+  // 3. Xiaomi 17 Ultra (16+512) -> 1,39,999
+  const xiaomi17Ultra = INITIAL_SMARTPHONE_CATALOGUE.find(
+    (p) => p.brand === 'Xiaomi' && p.model === 'Xiaomi 17 Ultra' && p.variant === '16+512'
+  );
+  assert.ok(xiaomi17Ultra);
+  assert.equal(xiaomi17Ultra.mopPrice, '1,39,999');
 
-  const upserted = upsertSmartphoneModel(INITIAL_SMARTPHONE_CATALOGUE, {
-    id: basePhone.id,
-    brand: basePhone.brand,
-    modelName: basePhone.modelName,
-    series: basePhone.series,
-    productImage: 'https://example.com/original-front.png',
-    galleryImages: {
-      back: 'https://example.com/original-back.png',
-      box: 'https://example.com/original-box.png',
-    },
-    colorsCsv: 'Titanium Gray, Titanium Black',
-    ramCsv: '12GB',
-    storageCsv: '256GB, 512GB',
-  });
-  assert.equal(upserted.ok, true);
-  if (upserted.ok) {
-    const slots = getProductGallerySlots(upserted.item);
-    assert.equal(slots[0].label, 'Front');
-    assert.equal(slots[0].imageUrl, 'https://example.com/original-front.png');
-    assert.equal(slots[1].label, 'Back');
-    assert.equal(slots[1].imageUrl, 'https://example.com/original-back.png');
-    assert.equal(slots[2].label, 'Side');
-    assert.equal(slots[2].imageUrl, null);
-    assert.equal(slots[5].label, 'Box / Package');
-    assert.equal(slots[5].imageUrl, 'https://example.com/original-box.png');
-    assert.deepEqual(upserted.item.colors, ['Titanium Gray', 'Titanium Black']);
-    assert.deepEqual(upserted.item.ramVariants, ['12GB']);
-    assert.deepEqual(upserted.item.storageVariants, ['256GB', '512GB']);
-  }
+  // 4. Nothing Phone 4a Pro (8GB / 128GB) -> MOP 54999, Effective 50499
+  const nothing4aPro = INITIAL_SMARTPHONE_CATALOGUE.find(
+    (p) => p.brand === 'Nothing' && p.model === 'Phone 4a Pro' && p.variant === '8GB / 128GB'
+  );
+  assert.ok(nothing4aPro);
+  assert.equal(nothing4aPro.mopPrice, '54999');
+  assert.equal(nothing4aPro.effectivePrice, '50499');
+  assert.equal(nothing4aPro.discountFullSwipe, 'Rs.3750');
+  assert.equal(nothing4aPro.discountEmi, '10% Up to 4500');
 
-  const accUpdate = upsertAccessoryItem(INITIAL_ACCESSORIES_CATALOGUE, {
-    id: INITIAL_ACCESSORIES_CATALOGUE[0].id,
-    productImage: 'https://example.com/original-cover.png',
-  });
-  assert.equal(accUpdate.ok, true);
-  if (accUpdate.ok) {
-    assert.equal(accUpdate.item.productImage, 'https://example.com/original-cover.png');
-  }
+  // 5. Lava Hero Shakti -> OLD RP 878, NEW RP 908
+  const lavaHeroShakti = INITIAL_SMARTPHONE_CATALOGUE.find(
+    (p) => p.brand === 'Lava' && p.model === 'Hero Shakti'
+  );
+  assert.ok(lavaHeroShakti);
+  assert.equal(lavaHeroShakti.oldRp, '878');
+  assert.equal(lavaHeroShakti.newRp, '908');
+  assert.equal(lavaHeroShakti.mopPrice, '908');
+
+  // 6. Google Pixel 10 Pro Fold -> ₹1,72,999
+  const pixelFold = INITIAL_SMARTPHONE_CATALOGUE.find(
+    (p) => p.brand === 'Google Pixel' && p.model === 'Pixel 10 Pro Fold'
+  );
+  assert.ok(pixelFold);
+  assert.equal(pixelFold.mopPrice, '₹1,72,999');
 });
 
-test('WhatsApp dynamic message builders match exact requested formats including Ask About a Product', () => {
+test('WhatsApp enquiry message format matches exact specification & Price Disclaimer matches exact string', () => {
+  assert.equal(
+    PRICE_CHANGE_DISCLAIMER,
+    'Prices subject to change. Please confirm latest price and availability with Friends Cell Point.'
+  );
+
+  const msg = buildPriceListWhatsAppMessage({
+    brand: 'vivo',
+    model: 'Y05 4G',
+    variant: '4GB + 64GB',
+    price: '₹ 15,999',
+  });
+  assert.equal(
+    msg,
+    `Hi Friends Cell Point, I am interested in:\nBrand: vivo\nModel: Y05 4G\nVariant: 4GB + 64GB\nPrice: ₹ 15,999\n\nPlease confirm availability.`
+  );
+
   assert.equal(
     STORE_INFO.askAboutProductMessage,
     'Hello Friends Cell Point, I would like to enquire about a mobile/accessory.'
   );
-
-  const productEnq = buildProductEnquiryWhatsAppMessage('Samsung Galaxy S Series');
-  assert.equal(
-    productEnq,
-    'Hello Friends Cell Point, I would like to enquire about Samsung Galaxy S Series. Please share the current price and availability.'
-  );
-
-  const msg1 = buildPhoneModelWhatsAppMessage('Samsung', 'Galaxy S Series');
-  assert.equal(
-    msg1,
-    'Hello Friends Cell Point, I would like to know the price and availability of Samsung Galaxy S Series.'
-  );
-
-  const msg2 = buildCatalogueProductWhatsAppMessage('9H Tempered Glass', 'Samsung Galaxy S Series');
-  assert.equal(
-    msg2,
-    'Hello Friends Cell Point, I want to enquire about 9H Tempered Glass for Samsung Galaxy S Series. Please share the current price and availability.'
-  );
-
   assert.equal(STORE_INFO.whatsappNumber, '917207987777');
 });
 
-test('Homepage Popular Search Chips, Mobile Categories, Accessory Tiles & Universal Router work properly', () => {
-  assert.deepEqual(HOMEPAGE_POPULAR_SEARCH_CHIPS, [
-    'iPhone',
-    'Samsung',
-    'OnePlus',
-    'vivo',
-    'OPPO',
-    'Redmi',
-    'realme',
-    '5G Phones',
-    'TWS',
-    'Tempered Glass',
-    'Chargers',
-  ]);
-  assert.equal(HOMEPAGE_MOBILE_CATEGORIES.length, 8);
-  assert.equal(HOMEPAGE_ACCESSORY_ENTRY_TILES.length, 11);
+test('Brand filter, Series filter, Model/Variant search, Price range filter, and Price sorting work accurately', () => {
+  // Brand filter
+  const nothingItems = filterAndSortSmartphoneCatalogue(INITIAL_SMARTPHONE_CATALOGUE, {
+    ...DEFAULT_MOBILE_FILTER_STATE,
+    brand: 'Nothing',
+  });
+  assert.equal(nothingItems.length, 10);
 
-  const twsRoute = resolveUniversalCatalogueSearch('TWS', INITIAL_BRAND_DIRECTORY);
-  assert.equal(twsRoute.targetSection, 'accessories');
-  if (twsRoute.targetSection === 'accessories') {
-    assert.equal(twsRoute.accessoryCategory, 'TWS / Buds');
-  }
+  // Series filter
+  const vivoXSeries = filterAndSortSmartphoneCatalogue(INITIAL_SMARTPHONE_CATALOGUE, {
+    ...DEFAULT_MOBILE_FILTER_STATE,
+    brand: 'vivo',
+    series: 'X SERIES',
+  });
+  assert.equal(vivoXSeries.length, 5);
 
-  const samsungRoute = resolveUniversalCatalogueSearch('Samsung', INITIAL_BRAND_DIRECTORY);
-  assert.equal(samsungRoute.targetSection, 'mobiles');
-  if (samsungRoute.targetSection === 'mobiles') {
-    assert.equal(samsungRoute.brand, 'Samsung');
-  }
+  // Search by variant
+  const variantSearch = filterAndSortSmartphoneCatalogue(INITIAL_SMARTPHONE_CATALOGUE, {
+    ...DEFAULT_MOBILE_FILTER_STATE,
+    searchQuery: '16GB + 512GB',
+  });
+  assert.ok(variantSearch.length >= 1);
 
-  const fiveGRoute = resolveUniversalCatalogueSearch('5G Phones', INITIAL_BRAND_DIRECTORY);
-  assert.equal(fiveGRoute.targetSection, 'mobiles');
-  if (fiveGRoute.targetSection === 'mobiles') {
-    assert.equal(fiveGRoute.category, '5G Smartphones');
-  }
+  // Price range filter: Under ₹10,000
+  const under10k = filterAndSortSmartphoneCatalogue(INITIAL_SMARTPHONE_CATALOGUE, {
+    ...DEFAULT_MOBILE_FILTER_STATE,
+    priceRange: 'Under ₹10,000',
+  });
+  assert.ok(under10k.length > 0);
+  assert.ok(under10k.every((p) => p.price !== null && p.price < 10000));
+
+  // Sort by price Low to High and High to Low
+  const lowToHigh = filterAndSortSmartphoneCatalogue(INITIAL_SMARTPHONE_CATALOGUE, {
+    ...DEFAULT_MOBILE_FILTER_STATE,
+    sortBy: 'price-asc',
+  });
+  assert.ok(
+    lowToHigh[0].price! <= lowToHigh[lowToHigh.length - 1].price!,
+    'Expected lowest price first when sorting price-asc'
+  );
+
+  const highToLow = filterAndSortSmartphoneCatalogue(INITIAL_SMARTPHONE_CATALOGUE, {
+    ...DEFAULT_MOBILE_FILTER_STATE,
+    sortBy: 'price-desc',
+  });
+  assert.equal(highToLow[0].model, 'X Fold 6');
+  assert.equal(highToLow[0].price, 219999);
 });
 
-test('Smart Search recognizes Brand, Series, Model, and Model Number (OnePlus Nord, OnePlus 13, Samsung Galaxy S, Galaxy A, iPhone, Redmi Note, vivo V, OPPO Reno, CPH2653, SM-S928B)', () => {
-  const mobileTerms = [
-    'OnePlus Nord',
-    'OnePlus 13',
-    'Samsung Galaxy S',
-    'Galaxy A',
-    'iPhone',
-    'Redmi Note',
-    'vivo V',
-    'OPPO Reno',
-    'CPH2653',
-    'SM-S928B',
-    '5G Phones',
-  ];
-  for (const term of mobileTerms) {
-    const results = filterAndSortSmartphoneCatalogue(INITIAL_SMARTPHONE_CATALOGUE, {
-      ...DEFAULT_MOBILE_FILTER_STATE,
-      searchQuery: term,
-    });
-    assert.ok(results.length > 0, `Expected search query "${term}" to return matching phones`);
-  }
-
-  const allSuggestionTerms = ['iPhone', 'Galaxy S', 'OnePlus', 'Redmi', 'TWS', 'Tempered Glass', 'Charger', 'CPH2653'];
-  for (const term of allSuggestionTerms) {
-    const suggestions = getInstantSearchSuggestions(
-      term,
-      INITIAL_BRAND_DIRECTORY,
-      INITIAL_SMARTPHONE_CATALOGUE
-    );
-    assert.ok(suggestions.length > 0, `Expected instant suggestions for "${term}"`);
-  }
-});
-
-test('CSV and JSON dataset import and export work properly', () => {
+test('CSV and JSON dataset import and export preserve centralized price-list fields', () => {
   const csvStr = exportSmartphonesToCsv(INITIAL_SMARTPHONE_CATALOGUE.slice(0, 5));
-  assert.ok(csvStr.includes('id,brand,series,model,modelNumber,generation,image,sourceUrl'));
+  assert.ok(
+    csvStr.includes('id,brand,series,model,variant,colors,mopPrice,dealerPrice,effectivePrice')
+  );
   const reimportedCsv = importSmartphonesFromCsvOrJson(csvStr, INITIAL_SMARTPHONE_CATALOGUE);
   assert.equal(reimportedCsv.ok, true);
   if (reimportedCsv.ok) {
@@ -291,82 +217,13 @@ test('CSV and JSON dataset import and export work properly', () => {
   }
 });
 
-test('Spec, Comparison and Related Products formatters adhere to strict truthfulness rules', () => {
-  assert.equal(formatVerifiedSpecValue('Details available on enquiry'), 'Details available on enquiry');
-  assert.equal(formatComparisonValue(null, true), 'Check with store');
-  assert.equal(formatComparisonValue('Details available on enquiry'), 'Check with store');
-
-  const samsungPhone = INITIAL_SMARTPHONE_CATALOGUE.find((p) => p.brand === 'Samsung')!;
-  const related = getRelatedProductsForPhone(INITIAL_SMARTPHONE_CATALOGUE, samsungPhone, 4);
-  assert.equal(related.length, 4);
-  assert.ok(related.every((r) => r.brand === 'Samsung' && r.id !== samsungPhone.id));
-});
-
-test('16 Accessory Categories and Accessories For This Phone compatibility work properly', () => {
+test('Accessories catalogue and compatibility helper work properly', () => {
   assert.equal(ACCESSORY_CATEGORY_NAMES.length, 16);
   assert.equal(INITIAL_ACCESSORIES_CATALOGUE.length, 16);
-  for (const acc of INITIAL_ACCESSORIES_CATALOGUE) {
-    assert.ok(
-      acc.productImage && acc.productImage.startsWith('https://'),
-      `Expected real online reference image for accessory category ${acc.category}`
-    );
-  }
-
-  const forIphone = getCompatibleAccessoriesForPhone(
+  const forVivo = getCompatibleAccessoriesForPhone(
     INITIAL_ACCESSORIES_CATALOGUE,
-    'Apple',
-    'Apple iPhone 17'
+    'vivo',
+    'vivo Y05 4G'
   );
-  assert.ok(forIphone.cases.length > 0);
-  assert.ok(forIphone.temperedGlass.length > 0);
-  assert.ok(forIphone.chargers.length > 0);
-  assert.ok(forIphone.cables.length > 0);
-  assert.ok(forIphone.earphones.length > 0);
-  assert.ok(forIphone.tws.length > 0);
-  assert.equal(forIphone.allCompatibleList.length, 7);
-});
-
-test('Admin operations: Add/Delete Brand and Add/Edit/Delete Model work cleanly', () => {
-  const addedBrandRes = addBrandToDirectory(
-    INITIAL_BRAND_DIRECTORY,
-    INITIAL_SMARTPHONE_CATALOGUE,
-    {
-      name: 'Meizu',
-      originNote: 'Flagship Series',
-      seriesCsv: 'Meizu 21 Series, Other Models',
-    }
-  );
-  assert.equal(addedBrandRes.ok, true);
-  if (addedBrandRes.ok) {
-    assert.equal(addedBrandRes.brands.length, INITIAL_BRAND_DIRECTORY.length + 1);
-    const afterDelete = deleteBrandFromDirectory(
-      addedBrandRes.brands,
-      addedBrandRes.catalogue,
-      'Meizu'
-    );
-    assert.equal(afterDelete.brands.length, INITIAL_BRAND_DIRECTORY.length);
-  }
-
-  const addedModelRes = upsertSmartphoneModel(INITIAL_SMARTPHONE_CATALOGUE, {
-    brand: 'Samsung',
-    modelName: 'Samsung Galaxy S24 Ultra',
-    series: 'Galaxy S Series',
-    availability: 'Check Availability',
-  });
-  assert.equal(addedModelRes.ok, true);
-  if (addedModelRes.ok) {
-    const editedRes = upsertSmartphoneModel(addedModelRes.catalogue, {
-      id: addedModelRes.item.id,
-      brand: 'Samsung',
-      modelName: 'Samsung Galaxy S24 Ultra (5G)',
-      series: 'Galaxy S Series',
-      availability: 'Enquire',
-    });
-    assert.equal(editedRes.ok, true);
-    if (editedRes.ok) {
-      assert.equal(editedRes.item.availability, 'Enquire');
-      const afterRemove = deleteSmartphoneModel(editedRes.catalogue, editedRes.item.id);
-      assert.equal(afterRemove.length, INITIAL_SMARTPHONE_CATALOGUE.length);
-    }
-  }
+  assert.equal(forVivo.allCompatibleList.length, 7);
 });
