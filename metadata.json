@@ -1,0 +1,6 @@
+{
+  "name": "Friends Cell Point — Mobile Store in Vissannapeta",
+  "description": "Explore the latest smartphones, mobile accessories, and direct store enquiries at Friends Cell Point, Tiruvuru Road, Vissannapeta, Andhra Pradesh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
