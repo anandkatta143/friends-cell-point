@@ -258,6 +258,12 @@ export interface HomepageAccessoryEntryTile {
   visualType: AccessoryCatalogueItem['visualType'];
 }
 
+export type SmartphoneCategoryItem = SmartphoneProduct;
+export type SetupAccessoryCategory = AccessoryCatalogueItem;
+export interface FindPhoneCategoryItem {
+  visualTheme: 'budget' | 'midrange' | 'premium' | 'flagship' | 'camera' | 'gaming' | 'fiveg';
+}
+
 export interface CatalogueDataProvider {
   providerName: 'local-storage' | 'supabase' | 'firebase' | 'rest-api' | 'postgres';
   getBrands(): Promise<BrandDirectoryEntry[]>;

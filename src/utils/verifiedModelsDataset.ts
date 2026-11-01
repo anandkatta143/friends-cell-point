@@ -6,6 +6,7 @@ export interface VerifiedModelSeed {
   ram: string[];
   storage: string[];
   colors: string[];
+  network?: '5G / 4G' | '5G' | '4G';
   keySpec?: string;
 }
 
