@@ -3,6 +3,7 @@ import { X, Trash2 } from 'lucide-react';
 import {
   SmartphoneProduct,
   formatStockStatusBadge,
+  formatPublicMopPrice,
   buildPriceListWhatsAppMessage,
   PRICE_CHANGE_DISCLAIMER,
 } from '../../utils/storeLogic';
@@ -44,11 +45,7 @@ export const ComparePanel: React.FC<ComparePanelProps> = ({
     },
     {
       label: 'MOP / Retail Price',
-      render: (phone) => phone.mopPrice || 'Check with store',
-    },
-    {
-      label: 'Dealer Price',
-      render: (phone) => phone.dealerPrice || '—',
+      render: (phone) => formatPublicMopPrice(phone.mopPrice, phone.price),
     },
     {
       label: 'Effective Price',
@@ -181,7 +178,7 @@ export const ComparePanel: React.FC<ComparePanelProps> = ({
                     brand: phone.brand,
                     model: phone.model || phone.modelName,
                     variant: phone.variant || 'Standard',
-                    price: phone.mopPrice || phone.effectivePrice || 'Check Price',
+                    price: formatPublicMopPrice(phone.mopPrice, phone.price),
                   });
                   return (
                     <td key={`${phone.id}-cta`} className="py-4 px-3">

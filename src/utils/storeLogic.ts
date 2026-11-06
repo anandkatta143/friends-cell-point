@@ -14,6 +14,15 @@ import {
   VERIFIED_PRODUCT_IMAGE_HIERARCHY,
   VerifiedProductImageRecord,
 } from './productImageMapping';
+import {
+  ACCESSORY_CATEGORIES,
+  AccessoryCategoryName,
+  AccessoryCatalogueItem,
+  INITIAL_ACCESSORIES_CATALOGUE,
+  formatAccessoryPriceDisplay,
+  buildAccessoryWhatsAppMessage,
+  searchAndFilterAccessories,
+} from './accessoriesDataset';
 
 export {
   CENTRALIZED_PRICE_LIST_DATA,
@@ -22,8 +31,19 @@ export {
   parseNumericPrice,
   resolveVerifiedProductImages,
   VERIFIED_PRODUCT_IMAGE_HIERARCHY,
+  ACCESSORY_CATEGORIES,
+  ACCESSORY_CATEGORIES as ACCESSORY_CATEGORY_NAMES,
+  INITIAL_ACCESSORIES_CATALOGUE,
+  formatAccessoryPriceDisplay,
+  buildAccessoryWhatsAppMessage,
+  searchAndFilterAccessories,
 };
-export type { PriceListProductEntry, VerifiedProductImageRecord };
+export type {
+  PriceListProductEntry,
+  VerifiedProductImageRecord,
+  AccessoryCategoryName,
+  AccessoryCatalogueItem,
+};
 
 export type InventoryStatus =
   | 'Check Availability'
@@ -66,24 +86,7 @@ export type PriceRangeFilterOption =
   | 'Mid-Range'
   | 'Premium'
   | 'Flagship';
-
-export type AccessoryCategoryName =
-  | 'Mobile Covers'
-  | 'Tempered Glass'
-  | 'TWS / Buds'
-  | 'Wireless Earphones'
-  | 'Wired Earphones'
-  | 'Chargers'
-  | 'Fast Chargers'
-  | 'USB Cables'
-  | 'Type-C Cables'
-  | 'Lightning Cables'
-  | 'Power Banks'
-  | 'Bluetooth Speakers'
-  | 'Smart Watches'
-  | 'Mobile Holders'
-  | 'Car Chargers'
-  | 'Other Mobile Accessories';
+// AccessoryCategoryName and AccessoryCatalogueItem are imported from accessoriesDataset
 
 export interface ProductGalleryImages {
   front?: string;
@@ -139,7 +142,6 @@ export interface SmartphoneProduct {
   colors: string[];
   colorOptions: string[];
   mopPrice: string;
-  dealerPrice: string;
   effectivePrice: string;
   oldRp?: string;
   newRp?: string;
@@ -221,37 +223,6 @@ export interface SeriesCatalogueSummary {
   representativeModel?: string;
 }
 
-export interface AccessoryCatalogueItem {
-  id: string;
-  brand: string;
-  productName: string;
-  category: AccessoryCategoryName;
-  productImage?: string;
-  galleryImages?: ProductGalleryImages;
-  compatibleModels: string;
-  compatibleFitGroup:
-    | 'cases'
-    | 'tempered'
-    | 'chargers'
-    | 'cables'
-    | 'earphones'
-    | 'tws'
-    | 'other';
-  price: number | null;
-  availability: InventoryStatus;
-  visualType:
-    | 'cases'
-    | 'tempered'
-    | 'earphones'
-    | 'tws'
-    | 'chargers'
-    | 'cables'
-    | 'powerbanks'
-    | 'audio-acc'
-    | 'stands'
-    | 'other';
-  shortDescription: string;
-}
 
 export interface AdvancedMobileFilterState {
   searchQuery: string;
@@ -381,24 +352,6 @@ export const MOBILE_CATEGORY_SLUGS: MobileCategorySlug[] = [
   '5G Smartphones',
 ];
 
-export const ACCESSORY_CATEGORY_NAMES: AccessoryCategoryName[] = [
-  'Mobile Covers',
-  'Tempered Glass',
-  'TWS / Buds',
-  'Wireless Earphones',
-  'Wired Earphones',
-  'Chargers',
-  'Fast Chargers',
-  'USB Cables',
-  'Type-C Cables',
-  'Lightning Cables',
-  'Power Banks',
-  'Bluetooth Speakers',
-  'Smart Watches',
-  'Mobile Holders',
-  'Car Chargers',
-  'Other Mobile Accessories',
-];
 
 export const GALLERY_ANGLE_DEFINITIONS: Array<{
   key: keyof ProductGalleryImages;
@@ -504,58 +457,30 @@ export const HOMEPAGE_MOBILE_CATEGORIES: HomepageMobileCategoryCard[] = [
 
 export const HOMEPAGE_ACCESSORY_ENTRY_TILES: HomepageAccessoryEntryTile[] = [
   {
-    id: 'acc-entry-covers',
-    label: 'Covers & Cases',
-    subtitle: 'Silicone, matte, clear & shockproof cases',
-    targetCategory: 'Mobile Covers',
-    visualType: 'cases',
-  },
-  {
-    id: 'acc-entry-tempered',
-    label: 'Tempered Glass',
-    subtitle: '9H screen guards, privacy & matte glass',
-    targetCategory: 'Tempered Glass',
-    visualType: 'tempered',
-  },
-  {
-    id: 'acc-entry-tws',
-    label: 'TWS / Buds',
-    subtitle: 'True wireless earbuds & charging cases',
-    targetCategory: 'TWS / Buds',
-    visualType: 'tws',
-  },
-  {
-    id: 'acc-entry-earphones',
-    label: 'Earphones',
-    subtitle: 'Wireless neckbands & wired earphones',
-    targetCategory: 'Wireless Earphones',
-    visualType: 'earphones',
-  },
-  {
     id: 'acc-entry-chargers',
     label: 'Chargers',
-    subtitle: 'Wall adapters & high-speed fast chargers',
-    targetCategory: 'Fast Chargers',
+    subtitle: 'Wall adapters, fast chargers & car power',
+    targetCategory: 'Chargers',
     visualType: 'chargers',
   },
   {
     id: 'acc-entry-cables',
     label: 'Cables',
-    subtitle: 'USB Type-C, Lightning & data cables',
-    targetCategory: 'USB Cables',
+    subtitle: 'USB Type-C, Lightning & fast data sync',
+    targetCategory: 'Cables',
     visualType: 'cables',
   },
   {
     id: 'acc-entry-powerbanks',
     label: 'Power Banks',
-    subtitle: 'Multi-port portable fast power backup',
+    subtitle: 'Multi-port & MagSafe fast power backup',
     targetCategory: 'Power Banks',
     visualType: 'powerbanks',
   },
   {
     id: 'acc-entry-smartwatches',
     label: 'Smart Watches',
-    subtitle: 'Calling smartwatches & watch straps',
+    subtitle: 'Pixel Watch, Fitbit & calling smartwatches',
     targetCategory: 'Smart Watches',
     visualType: 'other',
   },
@@ -569,13 +494,48 @@ export const HOMEPAGE_ACCESSORY_ENTRY_TILES: HomepageAccessoryEntryTile[] = [
   {
     id: 'acc-entry-holders',
     label: 'Mobile Holders',
-    subtitle: 'Desk stands, car & bike phone mounts',
+    subtitle: 'Desk stands, monopods, car & bike mounts',
     targetCategory: 'Mobile Holders',
     visualType: 'stands',
   },
   {
+    id: 'acc-entry-tws',
+    label: 'TWS / Earbuds',
+    subtitle: 'True wireless earbuds with charging cases',
+    targetCategory: 'TWS / Earbuds',
+    visualType: 'tws',
+  },
+  {
+    id: 'acc-entry-earphones',
+    label: 'Earphones',
+    subtitle: 'Wireless neckbands & wired earphones',
+    targetCategory: 'Earphones',
+    visualType: 'earphones',
+  },
+  {
+    id: 'acc-entry-tempered',
+    label: 'Tempered Glass',
+    subtitle: '9H screen guards, privacy & matte glass',
+    targetCategory: 'Tempered Glass',
+    visualType: 'tempered',
+  },
+  {
+    id: 'acc-entry-covers',
+    label: 'Mobile Covers',
+    subtitle: 'Silicone, matte, clear & shockproof cases',
+    targetCategory: 'Mobile Covers',
+    visualType: 'cases',
+  },
+  {
+    id: 'acc-entry-straps',
+    label: 'Smart Watch Straps',
+    subtitle: 'Silicone, magnetic & metal replacement straps',
+    targetCategory: 'Smart Watch Straps',
+    visualType: 'other',
+  },
+  {
     id: 'acc-entry-other',
-    label: 'Other Accessories',
+    label: 'Other Mobile Accessories',
     subtitle: 'OTG adapters, memory cards & essentials',
     targetCategory: 'Other Mobile Accessories',
     visualType: 'other',
@@ -742,7 +702,6 @@ function mapPriceListEntryToSmartphoneProduct(
     entry.series,
     entry.variant ? `Variant: ${entry.variant}` : '',
     entry.colors.length > 0 ? `Colours: ${entry.colors.join(', ')}` : '',
-    entry.dealerPrice ? `DP: ${entry.dealerPrice}` : '',
     entry.effectivePrice ? `Effective: ${entry.effectivePrice}` : '',
     entry.oldRp ? `Old RP: ${entry.oldRp}` : '',
   ].filter(Boolean);
@@ -770,8 +729,7 @@ function mapPriceListEntryToSmartphoneProduct(
     variant: entry.variant,
     colors: [...entry.colors],
     colorOptions: [...entry.colors],
-    mopPrice: entry.mopPrice,
-    dealerPrice: entry.dealerPrice,
+    mopPrice: entry.mopPrice?.trim() || 'Price on Enquiry',
     effectivePrice: entry.effectivePrice,
     oldRp: entry.oldRp,
     newRp: entry.newRp,
@@ -860,8 +818,7 @@ function createCatalogueSeedProducts(brands: BrandDirectoryEntry[]): SmartphoneP
         variant: 'Standard',
         colors: [],
         colorOptions: [],
-        mopPrice: 'Check Price',
-        dealerPrice: '',
+        mopPrice: 'Price on Enquiry',
         effectivePrice: '',
         source: 'Store Admin Entry',
         lastUpdated: 'Oct 2026',
@@ -1065,294 +1022,6 @@ export function getSeriesDirectoryForBrand(
   });
 }
 
-export const INITIAL_ACCESSORIES_CATALOGUE: AccessoryCatalogueItem[] = [
-  {
-    id: 'acc-cat-covers',
-    brand: 'Multi-Brand Compatible',
-    productName: 'Protective Silicone & MagSafe Mobile Covers',
-    category: 'Mobile Covers',
-    productImage:
-      'https://cdn.dummyjson.com/product-images/mobile-accessories/iphone-12-silicone-case-with-magsafe-plum/1.webp',
-    galleryImages: {
-      front:
-        'https://cdn.dummyjson.com/product-images/mobile-accessories/iphone-12-silicone-case-with-magsafe-plum/1.webp',
-    },
-    compatibleModels: 'All Major Smartphone Brands & Models (Ask for Your Model)',
-    compatibleFitGroup: 'cases',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'cases',
-    shortDescription: 'Clear cases, matte silicone, shockproof bumpers and designer covers.',
-  },
-  {
-    id: 'acc-cat-tempered',
-    brand: 'Multi-Brand Compatible',
-    productName: '9H Tempered Glass & Screen Guards',
-    category: 'Tempered Glass',
-    productImage:
-      'https://images.unsplash.com/photo-1616348436168-de43ad0db179?auto=format&fit=crop&w=800&q=85',
-    galleryImages: {
-      front:
-        'https://images.unsplash.com/photo-1616348436168-de43ad0db179?auto=format&fit=crop&w=800&q=85',
-    },
-    compatibleModels: 'All Major Smartphone Brands & Models (Ask for Your Model)',
-    compatibleFitGroup: 'tempered',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'tempered',
-    shortDescription: 'Edge-to-edge D+ glass, privacy guards, matte gaming glass and UV glass.',
-  },
-  {
-    id: 'acc-cat-tws',
-    brand: 'Audio & TWS Showcase',
-    productName: 'True Wireless Earbuds (TWS / Buds)',
-    category: 'TWS / Buds',
-    productImage:
-      'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpods/1.webp',
-    galleryImages: {
-      front:
-        'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpods/1.webp',
-    },
-    compatibleModels: 'Universal Bluetooth Compatibility (Android & iOS)',
-    compatibleFitGroup: 'tws',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'tws',
-    shortDescription: 'Compact wireless earbuds with pocket charging cases for music and calls.',
-  },
-  {
-    id: 'acc-cat-wireless-earphones',
-    brand: 'Wireless Audio Showcase',
-    productName: 'Bluetooth Neckband Wireless Earphones',
-    category: 'Wireless Earphones',
-    productImage:
-      'https://cdn.dummyjson.com/product-images/mobile-accessories/beats-flex-wireless-earphones/1.webp',
-    galleryImages: {
-      front:
-        'https://cdn.dummyjson.com/product-images/mobile-accessories/beats-flex-wireless-earphones/1.webp',
-    },
-    compatibleModels: 'Universal Bluetooth Compatibility (Android & iOS)',
-    compatibleFitGroup: 'earphones',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'earphones',
-    shortDescription: 'Magnetic wireless neckbands with long battery backup and inline mic.',
-  },
-  {
-    id: 'acc-cat-wired-earphones',
-    brand: 'Wired Audio Showcase',
-    productName: 'Type-C & 3.5mm Wired In-Ear Earphones',
-    category: 'Wired Earphones',
-    productImage:
-      'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=85',
-    galleryImages: {
-      front:
-        'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=85',
-    },
-    compatibleModels: 'USB Type-C & 3.5mm Jack Smartphones',
-    compatibleFitGroup: 'earphones',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'earphones',
-    shortDescription: 'Zero-latency wired in-ear earphones with clear microphone controls.',
-  },
-  {
-    id: 'acc-cat-chargers',
-    brand: 'Power & Charging',
-    productName: 'Standard Wall Chargers & Power Adapters',
-    category: 'Chargers',
-    productImage:
-      'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-iphone-charger/1.webp',
-    galleryImages: {
-      front:
-        'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-iphone-charger/1.webp',
-    },
-    compatibleModels: 'All Smartphones & Keypad Phones',
-    compatibleFitGroup: 'chargers',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'chargers',
-    shortDescription: 'Reliable everyday USB wall adapters for home and travel charging.',
-  },
-  {
-    id: 'acc-cat-fast-chargers',
-    brand: 'Fast Power Delivery',
-    productName: 'High-Speed USB-C PD & Wireless Fast Chargers',
-    category: 'Fast Chargers',
-    productImage:
-      'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpower-wireless-charger/1.webp',
-    galleryImages: {
-      front:
-        'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpower-wireless-charger/1.webp',
-    },
-    compatibleModels: 'Fast-Charge Supported Android & iPhone Models',
-    compatibleFitGroup: 'chargers',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'chargers',
-    shortDescription: 'High-speed USB-C PD, SuperVOOC and wireless fast charging pads.',
-  },
-  {
-    id: 'acc-cat-usb-cables',
-    brand: 'Charging & Data Sync',
-    productName: 'High-Speed USB Data & Charging Cables',
-    category: 'USB Cables',
-    productImage:
-      'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=800&q=85',
-    galleryImages: {
-      front:
-        'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=800&q=85',
-    },
-    compatibleModels: 'All USB-A & Micro-USB Smartphones & Accessories',
-    compatibleFitGroup: 'cables',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'cables',
-    shortDescription: 'Durable braided and standard USB charging and data sync cables.',
-  },
-  {
-    id: 'acc-cat-typec-cables',
-    brand: 'Fast Type-C Sync',
-    productName: 'USB Type-C to Type-C & USB-A to Type-C Cables',
-    category: 'Type-C Cables',
-    productImage:
-      'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-iphone-charger/2.webp',
-    galleryImages: {
-      front:
-        'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-iphone-charger/2.webp',
-    },
-    compatibleModels: 'All USB Type-C Android & iPhone 15/16/17 Series Models',
-    compatibleFitGroup: 'cables',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'cables',
-    shortDescription: '60W/100W PD and SuperVOOC compatible USB Type-C fast charging cables.',
-  },
-  {
-    id: 'acc-cat-lightning-cables',
-    brand: 'iOS Charging & Sync',
-    productName: 'USB-C to Lightning & USB-A to Lightning Cables',
-    category: 'Lightning Cables',
-    productImage:
-      'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-iphone-charger/1.webp',
-    galleryImages: {
-      front:
-        'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-iphone-charger/1.webp',
-    },
-    compatibleModels: 'Compatible iPhone & iPad Models',
-    compatibleFitGroup: 'cables',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'cables',
-    shortDescription: 'Fast-charging and sync cables for Lightning-port iPhone models.',
-  },
-  {
-    id: 'acc-cat-powerbanks',
-    brand: 'Portable Backup Power',
-    productName: 'MagSafe & Multi-Port Fast-Charge Power Banks',
-    category: 'Power Banks',
-    productImage:
-      'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-magsafe-battery-pack/1.webp',
-    galleryImages: {
-      front:
-        'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-magsafe-battery-pack/1.webp',
-    },
-    compatibleModels: 'Universal Smartphone & Earbud Charging',
-    compatibleFitGroup: 'other',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'powerbanks',
-    shortDescription: 'Compact portable battery packs with Type-C, USB-A and magnetic outputs.',
-  },
-  {
-    id: 'acc-cat-bt-speakers',
-    brand: 'Portable Audio',
-    productName: 'Portable Wireless Bluetooth Speakers',
-    category: 'Bluetooth Speakers',
-    productImage:
-      'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-homepod-mini-cosmic-grey/1.webp',
-    galleryImages: {
-      front:
-        'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-homepod-mini-cosmic-grey/1.webp',
-    },
-    compatibleModels: 'Universal Bluetooth, AUX & TF Card Playback',
-    compatibleFitGroup: 'other',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'audio-acc',
-    shortDescription: 'Compact wireless speakers for indoor and outdoor music playback.',
-  },
-  {
-    id: 'acc-cat-smartwatches',
-    brand: 'Wearables & Straps',
-    productName: 'Smart Watches & Watch Straps',
-    category: 'Smart Watches',
-    productImage: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-watch7.jpg',
-    galleryImages: {
-      front: 'https://fdn2.gsmarena.com/vv/bigpic/samsung-galaxy-watch7.jpg',
-    },
-    compatibleModels: 'Android & iOS Companion App Support',
-    compatibleFitGroup: 'other',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'other',
-    shortDescription: 'Bluetooth calling smartwatches, fitness trackers and replacement straps.',
-  },
-  {
-    id: 'acc-cat-holders',
-    brand: 'Stands & Mounts',
-    productName: 'Desk Stands, Monopods, Bike & Car Mobile Holders',
-    category: 'Mobile Holders',
-    productImage:
-      'https://cdn.dummyjson.com/product-images/mobile-accessories/selfie-stick-monopod/1.webp',
-    galleryImages: {
-      front:
-        'https://cdn.dummyjson.com/product-images/mobile-accessories/selfie-stick-monopod/1.webp',
-    },
-    compatibleModels: 'Universal Fit for All Screen Sizes',
-    compatibleFitGroup: 'other',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'stands',
-    shortDescription: 'Adjustable tabletop stands, monopods and secure mounts for navigation.',
-  },
-  {
-    id: 'acc-cat-car-chargers',
-    brand: 'In-Vehicle Power',
-    productName: 'Dual-Port Fast Car Chargers & Power Adapters',
-    category: 'Car Chargers',
-    productImage:
-      'https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?auto=format&fit=crop&w=800&q=85',
-    galleryImages: {
-      front:
-        'https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?auto=format&fit=crop&w=800&q=85',
-    },
-    compatibleModels: 'Universal 12V/24V Vehicle Socket & All Phones',
-    compatibleFitGroup: 'chargers',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'chargers',
-    shortDescription: 'Compact car power adapters with USB-C PD and USB-A fast output.',
-  },
-  {
-    id: 'acc-cat-other',
-    brand: 'Mobile Essentials',
-    productName: 'Wireless Headphones, OTG Adapters, Memory Cards & SIM Tools',
-    category: 'Other Mobile Accessories',
-    productImage:
-      'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpods-max-silver/1.webp',
-    galleryImages: {
-      front:
-        'https://cdn.dummyjson.com/product-images/mobile-accessories/apple-airpods-max-silver/1.webp',
-    },
-    compatibleModels: 'Universal Smartphone & Audio/Storage Accessories',
-    compatibleFitGroup: 'other',
-    price: null,
-    availability: 'Check Availability',
-    visualType: 'other',
-    shortDescription: 'Over-ear wireless headphones, MicroSD cards, Type-C OTG connectors and daily essentials.',
-  },
-];
 
 export const INITIAL_OFFER_CARDS: OfferCardItem[] = [
   {
@@ -1454,6 +1123,32 @@ export function buildWhatsAppUrl(customMessage?: string): string {
   return `https://wa.me/${STORE_INFO.whatsappNumber}?text=${encodeURIComponent(cleanMessage)}`;
 }
 
+export function formatPublicMopPrice(
+  mopPrice?: string | null,
+  numericPrice?: number | null
+): string {
+  const cleanMop = mopPrice?.trim() || '';
+  const lowerMop = cleanMop.toLowerCase();
+  if (
+    cleanMop &&
+    lowerMop !== 'check price' &&
+    lowerMop !== 'price on enquiry' &&
+    lowerMop !== 'needs verification' &&
+    lowerMop !== 'not explicitly listed'
+  ) {
+    return cleanMop.startsWith('₹') ? cleanMop : `₹${cleanMop}`;
+  }
+  if (
+    numericPrice !== null &&
+    numericPrice !== undefined &&
+    Number.isFinite(numericPrice) &&
+    numericPrice > 0
+  ) {
+    return `₹${numericPrice.toLocaleString('en-IN')}`;
+  }
+  return 'Price on Enquiry';
+}
+
 export function buildPriceListWhatsAppMessage(params: {
   brand: string;
   model: string;
@@ -1463,7 +1158,11 @@ export function buildPriceListWhatsAppMessage(params: {
   const brand = params.brand.trim() || 'Needs verification';
   const model = params.model.trim() || 'Needs verification';
   const variant = params.variant.trim() || 'Standard';
-  const price = params.price.trim() || 'Check Price';
+  const rawPrice = params.price.trim();
+  const price =
+    rawPrice && rawPrice.toLowerCase() !== 'check price'
+      ? rawPrice
+      : 'Price on Enquiry';
 
   return `Hi Friends Cell Point, I am interested in:
 Brand: ${brand}
@@ -1539,18 +1238,18 @@ export function resolveUniversalCatalogueSearch(
   const lower = q.toLowerCase();
 
   const accessoryMap: Array<{ keywords: string[]; category: AccessoryCategoryName }> = [
-    { keywords: ['tws', 'buds', 'earbud', 'airpods'], category: 'TWS / Buds' },
-    { keywords: ['tempered', 'screen guard', 'glass'], category: 'Tempered Glass' },
-    { keywords: ['charger', 'chargers', 'adapter', 'supervooc'], category: 'Fast Chargers' },
-    { keywords: ['cover', 'covers', 'case', 'cases', 'back cover'], category: 'Mobile Covers' },
-    { keywords: ['type-c', 'type c'], category: 'Type-C Cables' },
-    { keywords: ['cable', 'cables', 'usb'], category: 'USB Cables' },
-    { keywords: ['lightning'], category: 'Lightning Cables' },
-    { keywords: ['earphone', 'earphones', 'neckband', 'wireless earphone'], category: 'Wireless Earphones' },
-    { keywords: ['power bank', 'powerbank', 'power banks'], category: 'Power Banks' },
-    { keywords: ['watch', 'smart watch', 'smartwatches'], category: 'Smart Watches' },
-    { keywords: ['speaker', 'speakers'], category: 'Bluetooth Speakers' },
-    { keywords: ['holder', 'holders', 'stand', 'mount'], category: 'Mobile Holders' },
+    { keywords: ['tws', 'buds', 'earbud', 'earbuds', 'airpods', 'buds xe'], category: 'TWS / Earbuds' },
+    { keywords: ['tempered', 'screen guard', 'glass', 'screen protector'], category: 'Tempered Glass' },
+    { keywords: ['charger', 'chargers', 'adapter', 'supervooc', 'flashcharge', '15w'], category: 'Chargers' },
+    { keywords: ['cover', 'covers', 'case', 'cases', 'back cover', 'silicone case'], category: 'Mobile Covers' },
+    { keywords: ['cable', 'cables', 'usb', 'type-c', 'type c', 'lightning'], category: 'Cables' },
+    { keywords: ['earphone', 'earphones', 'neckband', 'wireless earphone', 'wired earphone'], category: 'Earphones' },
+    { keywords: ['power bank', 'powerbank', 'power banks', 'battery pack'], category: 'Power Banks' },
+    { keywords: ['watch', 'smart watch', 'smartwatches', 'pixel watch', 'fitbit'], category: 'Smart Watches' },
+    { keywords: ['speaker', 'speakers', 'bluetooth speaker'], category: 'Bluetooth Speakers' },
+    { keywords: ['holder', 'holders', 'stand', 'mount', 'monopod'], category: 'Mobile Holders' },
+    { keywords: ['strap', 'straps', 'watch strap', 'watch band'], category: 'Smart Watch Straps' },
+    { keywords: ['otg', 'memory card', 'essentials', 'headphone'], category: 'Other Mobile Accessories' },
   ];
 
   for (const entry of accessoryMap) {
@@ -1721,7 +1420,6 @@ export function filterAndSortSmartphoneCatalogue(
       item.model,
       item.variant || '',
       item.mopPrice || '',
-      item.dealerPrice || '',
       item.effectivePrice || '',
       item.colors.join(' '),
       item.modelNumber || '',
@@ -1778,7 +1476,7 @@ export function getInstantSearchSuggestions(
       { id: 'sug-nothing', type: 'brand', label: 'Nothing', sublabel: 'Phone 3a Lite, 4b, 4a & 4a Pro', queryValue: 'Nothing', brandName: 'Nothing' },
       { id: 'sug-lava', type: 'brand', label: 'Lava', sublabel: 'Feature & Keypad Series', queryValue: 'Lava', brandName: 'Lava' },
       { id: 'sug-pixel', type: 'brand', label: 'Google Pixel', sublabel: 'Pixel 10, Pixel 11, Watch 5 & Fitbit', queryValue: 'Google Pixel', brandName: 'Google Pixel' },
-      { id: 'sug-tws', type: 'accessory', label: 'TWS / Buds', sublabel: 'Accessory · True Wireless Earbuds', queryValue: 'TWS', accessoryCategory: 'TWS / Buds' },
+      { id: 'sug-tws', type: 'accessory', label: 'TWS / Earbuds', sublabel: 'Accessory · True Wireless Earbuds', queryValue: 'TWS', accessoryCategory: 'TWS / Earbuds' },
     ];
   }
 
@@ -1914,7 +1612,7 @@ export function getCompatibleAccessoriesForPhone(
   const chargers = accessories.filter((a) => a.compatibleFitGroup === 'chargers');
   const cables = accessories.filter((a) => {
     if (a.compatibleFitGroup !== 'cables') return false;
-    if (!isApple && a.category === 'Lightning Cables') return false;
+    if (!isApple && a.productName.toLowerCase().includes('lightning')) return false;
     return true;
   });
   const earphones = accessories.filter((a) => a.compatibleFitGroup === 'earphones');
@@ -2018,7 +1716,6 @@ export function upsertSmartphoneModel(
     series: string;
     variant?: string;
     mopPrice?: string;
-    dealerPrice?: string;
     effectivePrice?: string;
     source?: string;
     lastUpdated?: string;
@@ -2117,8 +1814,6 @@ export function upsertSmartphoneModel(
       series,
       variant: updatedVariant,
       mopPrice: updatedMopStr,
-      dealerPrice:
-        input.dealerPrice !== undefined ? input.dealerPrice.trim() : existing.dealerPrice,
       effectivePrice:
         input.effectivePrice !== undefined
           ? input.effectivePrice.trim()
@@ -2178,7 +1873,7 @@ export function upsertSmartphoneModel(
   const priceNum = input.price ?? parseNumericPrice(input.mopPrice);
   const mopPriceStr =
     input.mopPrice?.trim() ||
-    (priceNum !== null ? `₹${priceNum.toLocaleString('en-IN')}` : 'Check Price');
+    (priceNum !== null ? `₹${priceNum.toLocaleString('en-IN')}` : 'Price on Enquiry');
 
   const newItem: SmartphoneProduct = {
     id: `model-${brand.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
@@ -2191,7 +1886,6 @@ export function upsertSmartphoneModel(
     colors: colorOptions,
     colorOptions,
     mopPrice: mopPriceStr,
-    dealerPrice: input.dealerPrice?.trim() || '',
     effectivePrice: input.effectivePrice?.trim() || '',
     source: input.source?.trim() || 'Friends Cell Point Price List',
     lastUpdated: input.lastUpdated?.trim() || 'Oct 2026',
@@ -2265,8 +1959,8 @@ export function upsertAccessoryItem(
     ...existing,
     productName: input.productName?.trim() || existing.productName,
     productImage:
-      input.productImage !== undefined
-        ? input.productImage.trim() || undefined
+      input.productImage !== undefined && input.productImage.trim().length > 0
+        ? input.productImage.trim()
         : existing.productImage,
     price: input.price !== undefined ? input.price : existing.price,
     availability: input.availability || existing.availability,
@@ -2317,7 +2011,6 @@ export function exportSmartphonesToCsv(catalogue: SmartphoneProduct[]): string {
     'variant',
     'colors',
     'mopPrice',
-    'dealerPrice',
     'effectivePrice',
     'source',
     'lastUpdated',
@@ -2340,8 +2033,7 @@ export function exportSmartphonesToCsv(catalogue: SmartphoneProduct[]): string {
       p.modelName || p.model,
       p.variant || 'Standard',
       p.colors.join(' | '),
-      p.mopPrice || (p.price ? `₹${p.price.toLocaleString('en-IN')}` : ''),
-      p.dealerPrice || '',
+      p.mopPrice || (p.price ? `₹${p.price.toLocaleString('en-IN')}` : 'Price on Enquiry'),
       p.effectivePrice || '',
       p.source || '',
       p.lastUpdated || '',
@@ -2442,7 +2134,6 @@ export function importSmartphonesFromCsvOrJson(
 
     const imageStr = String(rec.productImage || rec.image || '').trim() || undefined;
     const mopPriceRaw = String(rec.mopPrice || rec.price || '').trim();
-    const dealerPrice = String(rec.dealerPrice || '').trim();
     const effectivePrice = String(rec.effectivePrice || '').trim();
     const source = String(rec.source || 'Friends Cell Point Price List').trim();
     const lastUpdated = String(rec.lastUpdated || 'Oct 2026').trim();
@@ -2463,7 +2154,7 @@ export function importSmartphonesFromCsvOrJson(
     const numericPrice = parseNumericPrice(mopPriceRaw);
     const formattedMop =
       mopPriceRaw.startsWith('₹') || !numericPrice
-        ? mopPriceRaw || 'Check Price'
+        ? mopPriceRaw || 'Price on Enquiry'
         : `₹${numericPrice.toLocaleString('en-IN')}`;
 
     const idVal =
@@ -2481,7 +2172,6 @@ export function importSmartphonesFromCsvOrJson(
       colors: colorList,
       colorOptions: colorList,
       mopPrice: formattedMop,
-      dealerPrice,
       effectivePrice,
       source,
       lastUpdated,

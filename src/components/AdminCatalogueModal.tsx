@@ -51,7 +51,6 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
   const [seriesName, setSeriesName] = useState('');
   const [variantStr, setVariantStr] = useState('');
   const [mopPriceStr, setMopPriceStr] = useState('');
-  const [dealerPriceStr, setDealerPriceStr] = useState('');
   const [effectivePriceStr, setEffectivePriceStr] = useState('');
   const [sourceStr, setSourceStr] = useState('Official Price List');
   const [lastUpdatedStr, setLastUpdatedStr] = useState('April 2026');
@@ -95,7 +94,6 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
       setSeriesName(initialEditProduct.series);
       setVariantStr(initialEditProduct.variant || '');
       setMopPriceStr(initialEditProduct.mopPrice || '');
-      setDealerPriceStr(initialEditProduct.dealerPrice || '');
       setEffectivePriceStr(initialEditProduct.effectivePrice || '');
       setSourceStr(initialEditProduct.source || 'Official Price List');
       setLastUpdatedStr(initialEditProduct.lastUpdated || 'April 2026');
@@ -116,7 +114,6 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
       setSeriesName('');
       setVariantStr('');
       setMopPriceStr('');
-      setDealerPriceStr('');
       setEffectivePriceStr('');
       setSourceStr('Official Price List');
       setLastUpdatedStr('April 2026');
@@ -170,7 +167,6 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
       series: seriesName || `${brandName} Series`,
       variant: variantStr,
       mopPrice: mopPriceStr,
-      dealerPrice: dealerPriceStr,
       effectivePrice: effectivePriceStr,
       source: sourceStr,
       lastUpdated: lastUpdatedStr,
@@ -204,7 +200,6 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
       setSeriesName('');
       setVariantStr('');
       setMopPriceStr('');
-      setDealerPriceStr('');
       setEffectivePriceStr('');
       setProductImage('');
       setGalleryImages({});
@@ -276,7 +271,6 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
       variant: p.variant,
       colors: p.colors,
       mopPrice: p.mopPrice,
-      dealerPrice: p.dealerPrice,
       effectivePrice: p.effectivePrice,
       source: p.source,
       lastUpdated: p.lastUpdated,
@@ -284,7 +278,7 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
     setJsonBuffer(JSON.stringify(structuredEntries, null, 2));
     setFormError('');
     setFormNotice(
-      'Generated centralized JSON export (brand, series, model, variant, colors, mopPrice, dealerPrice, effectivePrice, source, lastUpdated).'
+      'Generated centralized JSON export (brand, series, model, variant, colors, mopPrice, effectivePrice, source, lastUpdated).'
     );
   };
 
@@ -292,7 +286,7 @@ export const AdminCatalogueModal: React.FC<AdminCatalogueModalProps> = ({
     setJsonBuffer(exportSmartphonesToCsv(catalogue));
     setFormError('');
     setFormNotice(
-      'Generated CSV export with price-list fields (id, brand, series, model, variant, colors, mopPrice, dealerPrice, effectivePrice, source, lastUpdated).'
+      'Generated CSV export with price-list fields (id, brand, series, model, variant, colors, mopPrice, effectivePrice, source, lastUpdated).'
     );
   };
 

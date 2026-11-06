@@ -10,6 +10,7 @@ import {
   MapPin,
   Menu,
   X,
+  Search,
   SlidersHorizontal,
   Database,
   Layers,
@@ -48,6 +49,7 @@ import {
   resolveUniversalCatalogueSearch,
   auditSmartphoneCatalogue,
   PRICE_CHANGE_DISCLAIMER,
+  searchAndFilterAccessories,
 } from './utils/storeLogic';
 import {
   HeroStudioPhone,
@@ -72,9 +74,9 @@ import { EnquiryModal, EnquiryTarget } from './components/EnquiryModal';
 import { DirectionsModal } from './components/DirectionsModal';
 
 const STORAGE_KEYS = {
-  brandDirectory: 'fcp_brand_dir_v11',
-  phoneCatalogue: 'fcp_phone_catalogue_v11',
-  accessoriesCatalogue: 'fcp_accessories_catalogue_v11',
+  brandDirectory: 'fcp_brand_dir_v13',
+  phoneCatalogue: 'fcp_phone_catalogue_v13',
+  accessoriesCatalogue: 'fcp_accessories_catalogue_v13',
   mapsUrl: 'fcp_maps_url_v1',
 };
 
@@ -97,6 +99,11 @@ export default function App() {
 
   const [catalogue, setCatalogue] = useState<SmartphoneProduct[]>(() => {
     try {
+      // Remove legacy storage keys that may have contained internal dealer price fields
+      localStorage.removeItem('fcp_phone_catalogue_v11');
+      localStorage.removeItem('fcp_phone_catalogue_v12');
+      localStorage.removeItem('fcp_accessories_catalogue_v11');
+      localStorage.removeItem('fcp_accessories_catalogue_v12');
       const saved = localStorage.getItem(STORAGE_KEYS.phoneCatalogue);
       return saved ? JSON.parse(saved) : INITIAL_SMARTPHONE_CATALOGUE;
     } catch {
@@ -278,20 +285,13 @@ export default function App() {
     [accessoriesCatalogue, finderBrand, effectiveFinderModelName]
   );
 
-  // Filtered Accessories Catalogue
+  // Filtered Accessories Catalogue (search by brand, product name, and category)
   const filteredAccessoriesCatalogue = useMemo(() => {
-    const q = accessorySearchQuery.trim().toLowerCase();
-    return accessoriesCatalogue.filter((item) => {
-      if (selectedAccessoryCat !== 'All' && item.category !== selectedAccessoryCat) {
-        return false;
-      }
-      if (!q) return true;
-      return (
-        item.category.toLowerCase().includes(q) ||
-        item.productName.toLowerCase().includes(q) ||
-        item.shortDescription.toLowerCase().includes(q)
-      );
-    });
+    return searchAndFilterAccessories(
+      accessoriesCatalogue,
+      accessorySearchQuery,
+      selectedAccessoryCat
+    );
   }, [accessoriesCatalogue, selectedAccessoryCat, accessorySearchQuery]);
 
   const scrollToSection = (sectionId: string) => {
@@ -1811,21 +1811,66 @@ export default function App() {
               />
             </div>
 
-            {/* 16 Accessory Category Filter Pills */}
-            <div className="mt-6 flex items-center gap-1.5 overflow-x-auto pb-2 pt-4 border-t border-zinc-200">
+            {/* Search Accessories by Brand, Product Name or Category */}
+            <div className="mt-6 pt-4 border-t border-zinc-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                <input
+                  type="search"
+                  aria-label="Search accessories by brand, product name or category"
+                  value={accessorySearchQuery}
+                  onChange={(e) => setAccessorySearchQuery(e.target.value)}
+                  placeholder="Search accessories by brand, product name or category..."
+                  className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-white border border-zinc-300 text-xs text-zinc-900 placeholder:text-zinc-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 shadow-sm"
+                />
+                {accessorySearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setAccessorySearchQuery('')}
+                    aria-label="Clear accessory search"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="text-xs text-zinc-600 flex items-center gap-2">
+                <span>
+                  Showing <strong className="text-zinc-950 font-bold">{filteredAccessoriesCatalogue.length}</strong> of{' '}
+                  <strong className="text-zinc-950">{accessoriesCatalogue.length}</strong> accessories
+                </span>
+                {(accessorySearchQuery || selectedAccessoryCat !== 'All') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccessorySearchQuery('');
+                      setSelectedAccessoryCat('All');
+                    }}
+                    className="text-amber-700 hover:text-amber-800 font-semibold underline cursor-pointer text-xs"
+                  >
+                    Reset Filters
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 12 Accessory Category Filter Pills */}
+            <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-2 pt-1">
               <button
                 type="button"
                 onClick={() => setSelectedAccessoryCat('All')}
                 className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                   selectedAccessoryCat === 'All'
-                    ? 'bg-zinc-950 text-white'
+                    ? 'bg-zinc-950 text-white shadow-sm'
                     : 'bg-zinc-200/75 text-zinc-700 hover:bg-zinc-200'
                 }`}
               >
-                All {ACCESSORY_CATEGORY_NAMES.length} Categories
+                All Categories ({accessoriesCatalogue.length})
               </button>
               {ACCESSORY_CATEGORY_NAMES.map((catName) => {
                 const active = selectedAccessoryCat === catName;
+                const catCount = accessoriesCatalogue.filter((a) => a.category === catName).length;
                 return (
                   <button
                     key={catName}
@@ -1833,17 +1878,37 @@ export default function App() {
                     onClick={() => setSelectedAccessoryCat(catName)}
                     className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                       active
-                        ? 'bg-amber-500 text-zinc-950'
-                        : 'bg-zinc-200/75 text-zinc-700 hover:bg-zinc-200'
+                        ? 'bg-amber-500 text-zinc-950 font-bold shadow-sm'
+                        : 'bg-zinc-200/75 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-950'
                     }`}
                   >
-                    {catName}
+                    {catName} {catCount > 0 && <span className="opacity-80">({catCount})</span>}
                   </button>
                 );
               })}
             </div>
 
-            <div className="mt-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5">
+            {filteredAccessoriesCatalogue.length === 0 ? (
+              <div className="mt-8 p-10 rounded-2xl bg-white border border-zinc-200 text-center">
+                <p className="text-sm font-semibold text-zinc-900">
+                  No accessories found matching &ldquo;{accessorySearchQuery}&rdquo;
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Try searching with a different brand, model, or category name.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccessorySearchQuery('');
+                    setSelectedAccessoryCat('All');
+                  }}
+                  className="mt-4 px-4 py-2 rounded-xl bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold cursor-pointer"
+                >
+                  View All Accessories
+                </button>
+              </div>
+            ) : (
+              <div className="mt-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
               {filteredAccessoriesCatalogue.map((acc) => (
                 <AccessoryCard
                   key={acc.id}
@@ -1858,7 +1923,8 @@ export default function App() {
                   }
                 />
               ))}
-            </div>
+              </div>
+            )}
           </div>
         </section>
 

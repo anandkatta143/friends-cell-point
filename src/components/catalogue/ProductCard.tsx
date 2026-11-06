@@ -5,6 +5,7 @@ import {
   STORE_INFO,
   PRICE_CHANGE_DISCLAIMER,
   formatStockStatusBadge,
+  formatPublicMopPrice,
   buildPriceListWhatsAppMessage,
 } from '../../utils/storeLogic';
 import { OriginalProductImageFrame } from './OriginalProductImageFrame';
@@ -32,11 +33,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         ? 'text-rose-700 bg-rose-50 border-rose-200'
         : 'text-amber-800 bg-amber-50 border-amber-200/80';
 
-  const mopDisplay =
-    phone.mopPrice?.trim() ||
-    (phone.price ? `₹${phone.price.toLocaleString('en-IN')}` : 'Check Price');
+  const mopDisplay = formatPublicMopPrice(phone.mopPrice, phone.price);
 
-  const hasDealerPrice = Boolean(phone.dealerPrice && phone.dealerPrice.trim().length > 0);
   const hasEffectivePrice = Boolean(
     phone.effectivePrice && phone.effectivePrice.trim().length > 0
   );
@@ -149,7 +147,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </div>
           )}
 
-          {/* Pricing Section: MOP / Retail Price, Dealer Price (only if available), Effective Price (only if available) */}
+          {/* Pricing Section: MOP / Retail Price & Effective Price (only if available) */}
           <div className="mt-3 pt-2.5 border-t border-zinc-100 space-y-1.5">
             <div className="flex items-baseline justify-between gap-2">
               <div>
@@ -180,18 +178,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 {isCompared ? '✓ Comparing' : '+ Compare'}
               </button>
             </div>
-
-            {/* Dealer Price — ONLY if available */}
-            {hasDealerPrice && (
-              <div className="flex items-center justify-between text-xs bg-amber-50/70 border border-amber-200/70 rounded-lg px-2.5 py-1">
-                <span className="text-[11px] font-semibold text-amber-900">
-                  Dealer Price:
-                </span>
-                <span className="font-mono-num font-bold text-amber-950">
-                  {phone.dealerPrice}
-                </span>
-              </div>
-            )}
 
             {/* Effective Price — ONLY if applicable */}
             {hasEffectivePrice && (

@@ -13,6 +13,7 @@ import {
   buildWhatsAppUrl,
   buildPriceListWhatsAppMessage,
   formatStockStatusBadge,
+  formatPublicMopPrice,
   getProductGallerySlots,
 } from '../../utils/storeLogic';
 import { OriginalProductImageFrame } from './OriginalProductImageFrame';
@@ -59,11 +60,8 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   const isCompared = compareList.some((c) => c.id === product.id);
   const stockBadge = formatStockStatusBadge(product.availability);
 
-  const mopDisplay =
-    product.mopPrice?.trim() ||
-    (product.price ? `₹${product.price.toLocaleString('en-IN')}` : 'Check Price');
+  const mopDisplay = formatPublicMopPrice(product.mopPrice, product.price);
 
-  const hasDealerPrice = Boolean(product.dealerPrice && product.dealerPrice.trim().length > 0);
   const hasEffectivePrice = Boolean(
     product.effectivePrice && product.effectivePrice.trim().length > 0
   );
@@ -310,7 +308,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                           {sib.variant || 'Standard'}
                         </span>
                         <span className="font-mono-num text-xs font-bold text-amber-400">
-                          {sib.mopPrice}
+                          {formatPublicMopPrice(sib.mopPrice, sib.price)}
                         </span>
                       </button>
                     );
@@ -323,9 +321,9 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
               )}
             </div>
 
-            {/* MOP / Retail Price & Dealer Price (only if available) */}
+            {/* MOP / Retail Price & Effective Price (only if available) */}
             <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.04] border border-white/15 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <span className="text-xs text-zinc-400 block">MOP / Retail Price</span>
                   <div className="flex items-baseline gap-2 mt-0.5">
@@ -339,15 +337,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                     )}
                   </div>
                 </div>
-
-                {hasDealerPrice && (
-                  <div>
-                    <span className="text-xs text-amber-300/90 block">Dealer Price</span>
-                    <span className="font-mono-num text-xl font-bold text-amber-400 mt-0.5 block">
-                      {product.dealerPrice}
-                    </span>
-                  </div>
-                )}
 
                 {hasEffectivePrice && (
                   <div>
